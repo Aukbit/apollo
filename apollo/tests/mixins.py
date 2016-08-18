@@ -1,0 +1,129 @@
+import datetime
+import logging
+import sys
+import os
+import unittest2 as unittest
+
+from apollo.main import app
+
+from webtest import TestApp
+from google.appengine.ext import testbed
+from google.appengine.datastore import datastore_stub_util
+from google.appengine.ext import ndb
+
+
+class TestAppEngineMixin(unittest.TestCase):
+    """
+    Mixin to set up tests for app engine
+    """
+    @classmethod
+    def setUpClass(cls):
+        """
+        initialization logic for the test suite declared in the test module
+        code that is executed before all tests in one test run
+        :return:
+        """
+        # request Flak context
+        cls.ctx = app.test_request_context()
+        # cls.ctx = app_watchdog.test_request_context()
+        cls.ctx.push()
+        # propagate the exceptions to the test client
+        app.config['SECRET_KEY'] = '123'
+        app.config['TESTING'] = True
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        clean up logic for the test suite declared in the test module
+        code that is executed after all tests in one test run
+        :return:
+        """
+        cls.ctx.pop()
+
+    def setUp(self):
+        """
+        # initialization logic
+        # code that is executed before each test
+        :return:
+        """
+        # AppEngine Testbed
+        self.testbed = testbed.Testbed()
+
+        # Then activate the testbed, which prepares the service stubs for use.
+        self.testbed.setup_env(app_id='apollo-tests')
+        self.testbed.activate()
+
+        # Next, declare which service stubs you want to use.
+        # Create a consistency policy that will simulate the High Replication consistency model.
+        self.policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=1)
+
+        # Initialize the datastore stub with this policy.
+        self.testbed.init_datastore_v3_stub(consistency_policy=self.policy)
+        self.testbed.init_memcache_stub()
+        self.testbed.init_search_stub()
+        self.testbed.init_blobstore_stub()
+        self.testbed.init_urlfetch_stub()
+        self.testbed.init_modules_stub()
+        # https://cloud.google.com/appengine/docs/python/tools/localunittesting?hl=en#Python_Writing_task_queue_tests
+        # https://cloud.google.com/appengine/docs/python/tools/localunittesting#Python_Writing_task_queue_tests
+        root_path = os.path.join(os.path.dirname(__file__), '../../../')
+        # print root_path
+        self.testbed.init_taskqueue_stub(root_path=root_path)
+        self.taskqueue_stub = self.testbed.get_stub(testbed.TASKQUEUE_SERVICE_NAME)
+
+        # create a test server for us to prod
+        self.testapp = TestApp(app)
+        # Clear ndb's in-context cache between tests.
+        # This prevents data from leaking between tests.
+        # Alternatively, you could disable caching by
+        # using ndb.get_context().set_cache_policy(False)
+        ndb.get_context().clear_cache()
+
+    def tearDown(self):
+        self.testbed.deactivate()
+
+    def run_taskqueue_tasks(testbed, app):
+        """Runs tasks that are queued in the GAE taskqueue."""
+        from google.appengine.api import namespace_manager
+
+        tasks = testbed.taskqueue_stub.get_filtered_tasks()
+        for task in tasks:
+            namespace = task.headers.get('X-AppEngine-Current-Namespace', '')
+            previous_namespace = namespace_manager.get_namespace()
+            try:
+                namespace_manager.set_namespace(namespace)
+                app.post(
+                    task.url,
+                    task.extract_params(),
+                    headers={
+                        k: v for k, v in task.headers.iteritems()
+                        if k.startswith('X-AppEngine')})
+            finally:
+                namespace_manager.set_namespace(previous_namespace)
+
+    def run_tasks(self, url=None, queue_name=None, method='POST', response_status_code=200, **kwargs):
+        """
+        Helper method to execute a specific group of tasks
+        :param user:
+        :param queue_name:
+        :param queue_url:
+        :param kwargs:
+        :return:
+        """
+        from google.appengine.api import namespace_manager
+        tasks = self.taskqueue_stub.get_filtered_tasks(url=url,
+                                                       queue_names=[queue_name])
+        for task in tasks:
+            namespace = task.headers.get('X-AppEngine-Current-Namespace', '')
+            previous_namespace = namespace_manager.get_namespace()
+            try:
+                namespace_manager.set_namespace(namespace)
+                headers = {
+                        k: v for k, v in task.headers.iteritems()
+                        if k.startswith('X-AppEngine')}
+                if method == 'PUT':
+                    response = self.testapp.put(url, task.payload, headers=headers, status='*')
+                else:
+                    response = self.testapp.post(url, task.payload, headers=headers, status='*')
+            finally:
+                namespace_manager.set_namespace(previous_namespace)
