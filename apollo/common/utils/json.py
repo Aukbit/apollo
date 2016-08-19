@@ -20,6 +20,6 @@ class GeneralEncoder(json.JSONEncoder):
 
 class HttpHeadersEncoder(json.JSONEncoder):
     def default(self, obj):
-        if obj.__class__ in [str, int, float, bool, list, dict]:
+        if isinstance(obj, str):
             return json.JSONEncoder.default(self, obj)
         return None

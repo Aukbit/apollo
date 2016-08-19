@@ -4,6 +4,7 @@ import logging
 from flask import Flask, jsonify, g
 from apollo.common.database import init_db
 from apollo.components.user.models import User
+from apollo.components.log.models import log_http_request, log_http_response
 
 
 def setup_logging(debug=False):
@@ -48,6 +49,18 @@ app = create_app()
 @app.route('/', endpoint='index')
 def index():
     return jsonify({'data': 'Hello apollo'}), 200
+
+
+@app.before_request
+def log_request():
+    from flask import request
+    log_http_request(request)
+
+
+@app.after_request
+def after_request(response):
+    log_http_response(response)
+    return response
 
 
 @app.errorhandler(404)
