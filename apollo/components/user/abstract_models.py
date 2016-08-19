@@ -3,16 +3,18 @@ from passlib.apps import custom_app_context as pwd_context
 from cassandra.cqlengine import columns
 from cassandra.cqlengine.models import Model
 
-from ...common.abstract.models import *
+from ...common.abstract.models import AbstractBaseModel
 
 
-class AbstractUser(Model):
+class AbstractUser(AbstractBaseModel):
     """
     An abstract base class implementing a fully featured User model with
     admin-compliant permissions.
 
     Username, password and email are required. Other fields are optional.
     """
+    __abstract__ = True
+
     username = columns.Text(min_length=3, max_length=32, index=True, required=True)
     password = columns.Text(min_length=3, required=True)
     email = columns.Text(min_length=5, index=True, required=True)
@@ -20,18 +22,16 @@ class AbstractUser(Model):
     # is_staff > Designates whether the user can log into special levels of this app
     is_staff = columns.Boolean(default=False)
 
-    class Meta:
-        abstract = True
-
     # --------------
     # Helpers password
     # --------------
-    def set_password(self, password=None):
+    @staticmethod
+    def hash_password(password=None):
         """
         Returns hash from plain password
         """
         if password is not None:
-            self.password = pwd_context.encrypt(password)
+            return pwd_context.encrypt(password)
 
     def verify_password(self, password):
         """

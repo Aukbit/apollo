@@ -36,11 +36,16 @@ class UserTestCase(TestAppEngineMixin):
                     county='county',
                     zipcode='123',
                     )
-        u = User.create(profile=p, address=a)
-        #
+        # create
+        u = User.create(username='luke',
+                        password='123456',
+                        email='luke.skywalker@aukbit.com',
+                        profile=p,
+                        address=a)
+        # assert
         self.assertIsInstance(u, User)
         self.assertIsNotNone(u.id)
-        self.assertEqual(u.is_verified, False)
+        self.assertFalse(u.is_verified)
         # profile
         self.assertEqual(u.profile.first_name, 'Luke')
         self.assertEqual(u.profile.last_name, 'Skywalker')
@@ -54,7 +59,15 @@ class UserTestCase(TestAppEngineMixin):
         self.assertEqual(u.address.town_city, 'town_city')
         self.assertEqual(u.address.county, 'county')
         self.assertEqual(u.address.zipcode, '123')
-        #
-        self.assertEqual(u.address.zipcode, '123')
+        # AbstractUser
+        self.assertEqual(u.username, 'luke')
+        self.assertTrue(u.verify_password('123456'))
+        self.assertEqual(u.email, 'luke.skywalker@aukbit.com')
+        self.assertFalse(u.is_staff)
+        # AbstractBaseModel
+        self.assertEqual(u.object, 'user')
+        self.assertIsNotNone(u.changed_on)
+        self.assertIsNotNone(u.created_on)
+        self.assertTrue(u.super_active)
 
 
