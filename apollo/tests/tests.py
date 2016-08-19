@@ -19,7 +19,7 @@ class FlaskTestCase(unittest.TestCase):
     def tearDown(self):
         self.ctx.pop()
 
-    def test_endpoint(self):
+    def _test_endpoint(self):
         resp = self.app.get('/')
         self.assertEqual(resp.status, '200 OK')
         self.assertEqual(url_for('index'), '/')

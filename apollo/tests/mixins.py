@@ -31,8 +31,8 @@ class TestAppEngineMixin(unittest.TestCase):
         # propagate the exceptions to the test client
         main.app.config['TESTING'] = True
         main.app.config['DATABASE_KEYSPACE'] = 'tests'
-        # connection.default()
-        # create_keyspace_simple('tests', 1)
+        connection.default()
+        create_keyspace_simple('tests', 1)
 
     @classmethod
     def tearDownClass(cls):
@@ -41,7 +41,7 @@ class TestAppEngineMixin(unittest.TestCase):
         code that is executed after all tests in one test run
         :return:
         """
-        # drop_keyspace('tests')
+        drop_keyspace('tests')
         cls.ctx.pop()
 
     def setUp(self):
