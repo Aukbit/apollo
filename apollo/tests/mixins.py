@@ -4,8 +4,9 @@ import sys
 import os
 import unittest2 as unittest
 
-from apollo.main import app
-
+from context import main
+from cassandra.cqlengine import connection
+from cassandra.cqlengine.management import drop_keyspace, create_keyspace_simple
 from webtest import TestApp
 from google.appengine.ext import testbed
 from google.appengine.datastore import datastore_stub_util
@@ -24,12 +25,14 @@ class TestAppEngineMixin(unittest.TestCase):
         :return:
         """
         # request Flak context
-        cls.ctx = app.test_request_context()
+        cls.ctx = main.app.test_request_context()
         # cls.ctx = app_watchdog.test_request_context()
         cls.ctx.push()
         # propagate the exceptions to the test client
-        app.config['SECRET_KEY'] = '123'
-        app.config['TESTING'] = True
+        main.app.config['TESTING'] = True
+        main.app.config['DATABASE_KEYSPACE'] = 'tests'
+        connection.default()
+        create_keyspace_simple('tests', 1)
 
     @classmethod
     def tearDownClass(cls):
@@ -38,6 +41,7 @@ class TestAppEngineMixin(unittest.TestCase):
         code that is executed after all tests in one test run
         :return:
         """
+        drop_keyspace('tests')
         cls.ctx.pop()
 
     def setUp(self):
@@ -72,7 +76,7 @@ class TestAppEngineMixin(unittest.TestCase):
         self.taskqueue_stub = self.testbed.get_stub(testbed.TASKQUEUE_SERVICE_NAME)
 
         # create a test server for us to prod
-        self.testapp = TestApp(app)
+        self.testapp = TestApp(main.app)
         # Clear ndb's in-context cache between tests.
         # This prevents data from leaking between tests.
         # Alternatively, you could disable caching by
@@ -81,25 +85,6 @@ class TestAppEngineMixin(unittest.TestCase):
 
     def tearDown(self):
         self.testbed.deactivate()
-
-    def run_taskqueue_tasks(testbed, app):
-        """Runs tasks that are queued in the GAE taskqueue."""
-        from google.appengine.api import namespace_manager
-
-        tasks = testbed.taskqueue_stub.get_filtered_tasks()
-        for task in tasks:
-            namespace = task.headers.get('X-AppEngine-Current-Namespace', '')
-            previous_namespace = namespace_manager.get_namespace()
-            try:
-                namespace_manager.set_namespace(namespace)
-                app.post(
-                    task.url,
-                    task.extract_params(),
-                    headers={
-                        k: v for k, v in task.headers.iteritems()
-                        if k.startswith('X-AppEngine')})
-            finally:
-                namespace_manager.set_namespace(previous_namespace)
 
     def run_tasks(self, url=None, queue_name=None, method='POST', response_status_code=200, **kwargs):
         """

@@ -28,9 +28,7 @@ libraries:
 - name: ssl
   version: latest
 
-includes:
-# Include specific conditions based on environment
-- dev_env_variables.yaml
-#- production_env_variables.yaml
+env_variables:
+  SETTINGS_PATH: /settings.cfg
 
 # [END runtime]

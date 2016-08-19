@@ -6,7 +6,7 @@ from apollo.common.database import init_db
 from apollo.components.user.models import User
 
 
-def setup_logging():
+def setup_logging(debug=False):
     # logging
     stream_handler = logging.StreamHandler()
     # stream_handler.setLevel(logging.WARNING)
@@ -14,7 +14,7 @@ def setup_logging():
     stream_handler.setFormatter(logging.Formatter(verbose))
     logger = logging.getLogger("pluto")
     logger.addHandler(stream_handler)
-    if os.getenv('ENV') != 'production':
+    if debug:
         logger.setLevel(logging.DEBUG)
 
     #  TODO Error Mails
@@ -29,11 +29,17 @@ def create_app():
     :return:
     """
     app = Flask(__name__)
-    if os.getenv('ENV') != 'production':
-        app.config['DEBUG'] = True
-    app.secret_key = os.getenv('SECRET_KEY')
+    # Load default config
+    app.config.update(
+        DEBUG=True,
+        SECRET_KEY='SECRET_KEY'
+    )
+    # Override config from an environment variable
+    app.config.from_envvar('SETTINGS_PATH')
+    if app.config.get('ENV') == 'production':
+        app.config['DEBUG'] = False
     # register logging
-    setup_logging()
+    setup_logging(app.config.get('DEBUG'))
     return app
 
 app = create_app()

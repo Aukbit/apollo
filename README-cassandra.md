@@ -36,4 +36,5 @@
 9. Create a development KEYSPACE eg. dev
   ```
   CREATE KEYSPACE "dev" WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};
+  CREATE KEYSPACE "tests" WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};
   ```

@@ -10,5 +10,14 @@ echo -e "\nYou are about to sync this project with your local DB."
 source ~/.virtualenv/apollo/bin/activate
 export FLASK_APP=./main.py
 #
+echo -e "\nDefine <SETTINGS_PATH> default <../settings.cfg>: \c"
+read  path
+if [ ! $path = '' ]
+then
+    export SETTINGS_PATH=$path
+else
+    export SETTINGS_PATH='../settings.cfg'
+fi
+#
 flask initdb
 exit

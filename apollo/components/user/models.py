@@ -1,3 +1,4 @@
+import uuid
 from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 
@@ -11,7 +12,7 @@ class User(Model):
     """
     __table_name__ = 'users'
 
-    id = columns.UUID(primary_key=True)
+    id = columns.UUID(primary_key=True, default=uuid.uuid4)
     profile = columns.UserDefinedType(Profile)
     address = columns.UserDefinedType(Address)
     is_verified = columns.Boolean(default=False)

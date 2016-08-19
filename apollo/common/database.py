@@ -1,15 +1,15 @@
 import os
-from flask import g
-from cassandra.cluster import Cluster
-from cassandra.cqlengine.management import sync_table
+from flask import g, current_app
+from cassandra.cqlengine.management import sync_table, sync_type
+from cassandra.cqlengine import connection
 
 
-def connect_db():
+def connect():
     """Connects to the specific database."""
-    cluster = Cluster([os.getenv('DATABASE_IP', '127.0.0.1')], protocol_version=3)
-    session = cluster.connect()
-    session.set_keyspace(os.getenv('DATABASE_KEYSPACE', 'dev'))
-    return session
+    connection.setup([current_app.config.get('DATABASE_IP', '127.0.0.1')],
+                     current_app.config.get('DATABASE_KEYSPACE', 'dev'),
+                     protocol_version=3)
+    return connection.get_session()
 
 
 def get_db():
@@ -17,17 +17,22 @@ def get_db():
     current application context.
     """
     if not hasattr(g, 'db'):
-        g.db = connect_db()
+        g.db = connect()
     return g.db
 
 
-def init_db(models=None):
+def init_db(models=None, types=None):
     """
     To sync the models to the database.
     *Note: synchronizing models causes schema changes, and should be done with caution.
     Please see the discussion in cassandra.cqlengine.management - Schema management for cqlengine for considerations.
     """
-    db = get_db()
-    for model in models:
-        sync_table(model)
+    get_db()
+    if models:
+        for model in models:
+            sync_table(model)
+    if types:
+        ks = current_app.config.get('DATABASE_KEYSPACE', 'dev')
+        for t in types:
+            sync_type(ks, t)
 

@@ -11,4 +11,5 @@ apollo-api/lib
 *.pem
 *.babelrc
 *.map
+*.cfg
 

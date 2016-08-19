@@ -16,4 +16,4 @@ class Address(UserType):
     line_2 = columns.Text()
     town_city = columns.Text()
     county = columns.Text()
-    zipcode = columns.Integer()
+    zipcode = columns.Text()
