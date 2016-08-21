@@ -18,4 +18,4 @@ class JsonMixin(object):
         return values
 
     def to_json(self):
-        return json.loads(json.dumps(self.to_dict(), cls=GeneralEncoder))
+        return json.dumps(self.to_dict(), cls=GeneralEncoder)

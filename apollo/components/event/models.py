@@ -13,11 +13,12 @@ class Event(Model):
     """
     __table_name__ = 'event'
 
-    id = columns.TimeUUID(primary_key=True, clustering_order="DESC", default=time.time)
     parent_id = columns.UUID(primary_key=True)
+    id = columns.TimeUUID(primary_key=True, clustering_order='DESC', default=uuid.uuid1)
     source_type = columns.Text(discriminator_column=True)
     action = columns.TinyInt()
-    data = columns.Text()
+    # data = columns.Text()
+    data = columns.Blob()
     created_on = columns.DateTime(default=datetime.utcnow)
 
     @property

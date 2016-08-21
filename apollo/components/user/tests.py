@@ -2,13 +2,14 @@
 import datetime
 import base64
 
+from mock import MagicMock, Mock, patch
 from flask import url_for
-
 from cassandra.cqlengine.management import drop_table
 
 from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
 from apollo.components.user.models import User, Profile, Address
+from apollo.components.event.subscribers import EventSubscriber
 
 
 class UserTestCase(TestAppEngineMixin):
@@ -22,7 +23,8 @@ class UserTestCase(TestAppEngineMixin):
         super(UserTestCase, self).tearDown()
         drop_table(User)
 
-    def test_create_user(self):
+    @patch.object(EventSubscriber, 'on_save')
+    def test_create_user(self, *args):
         self.assertEqual(User.objects.count(), 0)
         p = Profile(first_name='Luke',
                     last_name='Skywalker',
