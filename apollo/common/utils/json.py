@@ -15,6 +15,8 @@ class GeneralEncoder(json.JSONEncoder):
             return obj.isoformat()
         elif isinstance(obj, uuid.UUID):
             return obj.__str__()
+        elif isinstance(obj, set):
+            return list(obj)
         elif hasattr(obj, '__table_name__') or hasattr(obj, '__type_name__'):
             return obj.to_json()
         return json.JSONEncoder.default(self, obj)
