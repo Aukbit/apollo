@@ -19,14 +19,12 @@ class EventSubscriber(Subscriber):
         from flask import g
         if isinstance(getattr(g, '_log', None), LogHttpRequest):
             log = g._log
-            EventApi.create(parent_id=instance.id,
+            EventApi.create(parent=instance,
                             action=action,
-                            data=instance.to_json(),
                             log_id=log.id)
         else:
-            EventBot.create(parent_id=instance.id,
-                            action=action,
-                            data=instance.to_json())
+            EventBot.create(parent=instance,
+                            action=action)
 
     def on_save(self, sender, **kwargs):
         super(EventSubscriber, self).on_save(sender, **kwargs)
@@ -35,4 +33,6 @@ class EventSubscriber(Subscriber):
             self.create_event(instance)
 
 
-event_subscriber = EventSubscriber(senders=['user', 'account'])
+event_subscriber = EventSubscriber(senders=['user',
+                                            'account',
+                                            'transfer'])

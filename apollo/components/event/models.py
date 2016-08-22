@@ -18,22 +18,27 @@ class Event(Model):
     id = columns.TimeUUID(primary_key=True, clustering_order='DESC', default=uuid.uuid1)
     source_type = columns.Text(discriminator_column=True)
     action = columns.TinyInt()
-    data = columns.Text()
+    data = columns.Text(required=True)
     created_on = columns.DateTime(default=datetime.utcnow)
+
+    @classmethod
+    def create(cls, **kwargs):
+        parent = kwargs.get('parent')
+        if parent is None:
+            raise ValidationError('parent - None values are not allowed.')
+
+        kwargs['parent_id'] = parent.id
+        kwargs['data'] = parent.to_json()
+        del kwargs['parent']
+        event = super(Event, cls).create(**kwargs)
+        sender = 'event.{}'.format(event.type)
+        signal('on_event').send(sender, instance=event, parent=parent)
+        return event
 
     @property
     def type(self):
         data = json.loads(self.data)
         return '{}.{}'.format(data.get('object', 'object'), ACTIONS_MAP[self.action])
-
-    # --------------
-    # Super Methods
-    # --------------
-    def save(self):
-        self.changed_on = datetime.utcnow()
-        sender = 'event.{}'.format(self.type)
-        signal('on_save').send(sender, instance=self)
-        return super(Event, self).save()
 
 
 class EventApi(Event):
