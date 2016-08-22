@@ -5,46 +5,41 @@ import base64
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
 from cassandra.cqlengine.management import drop_table
+from cassandra.cqlengine import columns
 from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
+from apollo.components.account.models import CurrentAccount
 from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
-from apollo.components.event.general import ACTIONS_MAP, CREATED, UPDATED
+from apollo.common.currencies import DEFAULT_CURRENCY
 
 
-class EventTestCase(TestAppEngineMixin):
+class AccountTestCase(TestAppEngineMixin):
 
     def setUp(self):
-        super(EventTestCase, self).setUp()
-        init_db(models=[EventApi, EventBot, User])
+        super(AccountTestCase, self).setUp()
+        init_db(models=[CurrentAccount, EventApi, EventBot, User])
         self.db = get_db()
 
     def tearDown(self):
-        super(EventTestCase, self).tearDown()
+        super(AccountTestCase, self).tearDown()
         drop_table(EventApi)
         drop_table(EventBot)
         drop_table(User)
+        drop_table(CurrentAccount)
 
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
-    def test_create_event(self):
-        # get events
-        events = Event.objects.all()
-        self.assertEqual(len(events), 1)
-        self.assertIsNotNone(events[0].id)
-        self.assertEqual(events[0].parent_id, self.luke.id)
-        self.assertEqual(events[0].action, CREATED[0])
-        self.assertEqual(events[0].data, self.luke.to_json())
+    def test_create_account(self):
+        # get accounts
+        accounts = CurrentAccount.objects.all()
+        self.assertEqual(len(accounts), 1)
+        self.assertIsNotNone(accounts[0].id)
+        self.assertEqual(accounts[0].owner_id, self.luke.id)
+        self.assertEqual(accounts[0].name, '{} current account'.format(self.luke.username))
+        self.assertEqual(accounts[0].available.amount, 0)
+        self.assertEqual(accounts[0].available.currency, DEFAULT_CURRENCY[0])
+        self.assertEqual(len(accounts[0].pending), 0)
 
-    @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
-    def test_update_event(self):
-        # assert events
-        self.assertEqual(Event.objects.count(), 1)
-        # update user
-        self.luke.profile = Profile(first_name='luke', last_name='skywalker')
-        self.luke.save()
-        # assert
-        self.assertEqual(Event.objects.count(), 2)
-        events = Event.objects.filter(parent_id=self.luke.id).order_by('id')
-        self.assertEqual(events[1].action, UPDATED[0])
+
 

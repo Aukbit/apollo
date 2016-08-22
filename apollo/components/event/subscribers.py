@@ -1,6 +1,5 @@
 import logging
 logger = logging.getLogger(__name__)
-from google.appengine.ext import ndb
 
 from .models import EventApi, EventBot
 from .general import CREATED, UPDATED
@@ -36,4 +35,4 @@ class EventSubscriber(Subscriber):
             self.create_event(instance)
 
 
-event_subscriber = EventSubscriber()
+event_subscriber = EventSubscriber(senders=['user'])

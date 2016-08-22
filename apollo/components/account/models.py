@@ -4,40 +4,33 @@ import time
 import simplejson as json
 from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
-from .general import ACTIONS_MAP
+
+from .custom_types import Amount, Transaction
+from ...common.abstract.models import AbstractBaseModel
+from ...common.currencies import DEFAULT_CURRENCY
 
 
-class Event(Model):
+class Account(AbstractBaseModel):
     """
-    Event
+    Account
     """
-    __table_name__ = 'event'
+    __table_name__ = 'account'
 
-    parent_id = columns.UUID(primary_key=True)
-    id = columns.TimeUUID(primary_key=True, clustering_order='DESC', default=uuid.uuid1)
-    source_type = columns.Text(discriminator_column=True)
-    action = columns.TinyInt()
-    # data = columns.Text()
-    data = columns.Blob()
-    created_on = columns.DateTime(default=datetime.utcnow)
-
-    @property
-    def type(self):
-        print self.data
-        return '{}.{}'.format('object', ACTIONS_MAP[self.action])
+    owner_id = columns.UUID(primary_key=True)
+    id = columns.UUID(primary_key=True, default=uuid.uuid4)
+    name = columns.Text()
+    type = columns.Text(discriminator_column=True)
 
 
-class EventApi(Event):
+class CurrentAccount(Account):
     """
-    EventApi
+    CurrentAccount
     """
-    __discriminator_value__ = 'api'
-    log_id = columns.UUID()
+    __discriminator_value__ = 'current'
+    available = columns.UserDefinedType(Amount)
+    pending = columns.Set(columns.UserDefinedType(Transaction))
 
-
-class EventBot(Event):
-    """
-    EventBot
-    """
-    __discriminator_value__ = 'bot'
-
+    @classmethod
+    def create(cls, **kwargs):
+        kwargs['available'] = Amount(amount=0, currency=DEFAULT_CURRENCY[0])
+        return super(CurrentAccount, cls).create(**kwargs)

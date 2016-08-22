@@ -12,11 +12,15 @@ on_save = signal('on_save')
 
 class Subscriber(object):
 
-    def __init__(self, sender=ANY):
+    def __init__(self, senders=None):
         def handle_on_save(*args, **kwargs):
             self.on_save(*args, **kwargs)
         self.handle_on_save = handle_on_save
-        on_save.connect(handle_on_save, sender=sender)
+        if senders is not None:
+            for sender in senders:
+                on_save.connect(handle_on_save, sender=sender)
+        else:
+            on_save.connect(handle_on_save, sender=ANY)
 
     @staticmethod
     def info(signal, sender, **kwargs):

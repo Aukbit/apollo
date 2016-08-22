@@ -19,7 +19,6 @@ class User(AbstractUser):
 
     @classmethod
     def create(cls, **kwargs):
-
         password = kwargs.get('password')
         kwargs['password'] = cls.hash_password(password)
         return super(User, cls).create(**kwargs)
