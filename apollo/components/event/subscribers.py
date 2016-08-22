@@ -35,4 +35,4 @@ class EventSubscriber(Subscriber):
             self.create_event(instance)
 
 
-event_subscriber = EventSubscriber(senders=['user'])
+event_subscriber = EventSubscriber(senders=['user', 'account'])

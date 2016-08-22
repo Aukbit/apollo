@@ -40,6 +40,8 @@ class AccountTestCase(TestAppEngineMixin):
         self.assertEqual(accounts[0].available.amount, 0)
         self.assertEqual(accounts[0].available.currency, DEFAULT_CURRENCY[0])
         self.assertEqual(len(accounts[0].pending), 0)
+        # assert event is created
+        self.assertEqual(Event.objects.count(), 2)
 
 
 
