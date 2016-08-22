@@ -16,9 +16,10 @@ def get_db():
     """Opens a new database connection if there is none yet for the
     current application context.
     """
-    if not hasattr(g, 'db'):
-        g.db = connect()
-    return g.db
+    db = getattr(g, 'db', None)
+    if db is None:
+        db = g.db = connect()
+    return db
 
 
 def init_db(models=None, types=None):
