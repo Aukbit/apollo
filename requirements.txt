@@ -7,6 +7,7 @@
 Flask==0.11
 simplejson==3.8.2
 passlib==1.6.5
+blinker==1.4
 
 # db cassandra
 cassandra-driver==3.6.0
