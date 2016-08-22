@@ -35,4 +35,5 @@ class EventSubscriber(Subscriber):
 
 event_subscriber = EventSubscriber(senders=['user',
                                             'account',
+                                            'account_transaction',
                                             'transfer'])

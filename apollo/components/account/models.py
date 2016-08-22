@@ -36,28 +36,39 @@ class CurrentAccount(Account):
         kwargs['available'] = Amount(amount=0, currency=DEFAULT_CURRENCY[0])
         return super(CurrentAccount, cls).create(**kwargs)
 
+    @property
+    def pending_total(self):
+        return sum([p.value.amount for p in self.pending])
+
+    @property
+    def net(self):
+        total = self.available.amount + self.pending_total
+        return Amount(amount=total, currency=self.available.currency)
+
 
 class AccountTransaction(AbstractBaseModel):
     """
     AccountTransaction
     """
+    __table_name__ = 'account_transaction'
+
     account_id = columns.UUID(primary_key=True)
     id = columns.TimeUUID(primary_key=True, clustering_order='DESC', default=uuid.uuid1)
     description = columns.Text()
     value = columns.UserDefinedType(Amount)
     source_id = columns.UUID()
     type = columns.Text(discriminator_column=True)
-    status = columns.TinyInt(default=TRANSACTION_PENDING[0])
+    status = columns.TinyInt(default=TRANSACTION_PENDING[0], index=True)
 
 
-class DebitAccountTransaction(Account):
+class DebitAccountTransaction(AccountTransaction):
     """
     DebitAccountTransaction
     """
     __discriminator_value__ = 'debit'
 
 
-class CreditAccountTransaction(Account):
+class CreditAccountTransaction(AccountTransaction):
     """
     CreditAccountTransaction
     """

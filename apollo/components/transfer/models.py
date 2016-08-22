@@ -65,10 +65,7 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        print self
-        print self.id
         description = '{} debit transfer'.format(self.type)
-        print description
         DebitAccountTransaction.create(account_id=self.account_id,
                                        description=description,
                                        value=self.value,
@@ -94,6 +91,7 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
+        print
         return True
 
 
