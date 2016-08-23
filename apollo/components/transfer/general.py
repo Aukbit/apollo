@@ -36,7 +36,7 @@ TT_PAID = {
 }
 
 """
-TT_REQUEST_FAILURE
+TT_FAILURE
 Transfer failed
 """
 TT_FAILURE = {
@@ -49,9 +49,23 @@ TT_FAILURE = {
     'after': []
 }
 
+"""
+TT_CANCEL
+Transfer cancelled
+"""
+TT_CANCEL = {
+    'trigger': 'go_cancel',
+    'source': [TRANSFER_FAILED[1]],
+    'dest': TRANSFER_CANCELLED[1],
+    'conditions': [],
+    'unless': [],
+    'before': [],
+    'after': []
+}
 
 TRANSFER_STATE_TRANSITIONS = [TT_PAID,
-                              TT_FAILURE]
+                              TT_FAILURE,
+                              TT_CANCEL]
 
 # --------------
 # Failure codes

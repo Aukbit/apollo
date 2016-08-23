@@ -4,6 +4,7 @@ import base64
 
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
+from transitions import MachineError
 from cassandra.cqlengine.management import drop_table
 from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
@@ -12,6 +13,7 @@ from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
 from apollo.components.event.general import ACTIONS_MAP, CREATED, UPDATED
 from apollo.components.account.models import (CurrentAccount,
+                                              AccountTransaction,
                                               DebitAccountTransaction,
                                               CreditAccountTransaction)
 from apollo.components.transfer.models import P2pTransfer
@@ -62,6 +64,10 @@ class EventTestCase(TestAppEngineMixin):
                                description='last dinner bill',
                                value=Amount(amount=500, currency=DEFAULT_CURRENCY[0]))
         self.assertIsNotNone(t.id)
+        # assert state machine
+        self.assertEqual(len(t.machine.events), 2)
+        self.assertEqual(len(t.machine.states), 4)
+        #
         self.assertEqual(t.account_id, account.id)
         self.assertEqual(t.destination_id, destination.id)
         self.assertEqual(t.description, 'last dinner bill')
@@ -75,10 +81,13 @@ class EventTestCase(TestAppEngineMixin):
         # machine
         self.assertEqual(t.state, TRANSFER_PAID[1])
         # assert is saved
-        self.assertEqual(P2pTransfer.objects.count(), 0)
+        self.assertEqual(P2pTransfer.objects.count(), 1)
         # event
         self.assertEqual(Event.objects.filter(parent_id=t.id).count(), 1)
-        #
+        # get transitions
+        self.assertEqual(AccountTransaction.objects.count(), 2)
+        # dat = AccountTransaction.objects.filter(account_id=self.luke.id).get()
+        
         # get accounts
         account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
         destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
@@ -90,6 +99,11 @@ class EventTestCase(TestAppEngineMixin):
         # assert pending operations
         self.assertEqual(len(account.pending), 0)
         self.assertEqual(len(destination.pending), 0)
+        # assert fail transitions from this state
+        with self.assertRaises(MachineError):
+            t.go_transfer()
+        with self.assertRaises(MachineError):
+            t.go_cancel()
 
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
@@ -108,6 +122,10 @@ class EventTestCase(TestAppEngineMixin):
                                description='last dinner bill',
                                value=Amount(amount=500, currency=DEFAULT_CURRENCY[0]))
         self.assertIsNotNone(t.id)
+        # assert state machine
+        self.assertEqual(len(t.machine.events), 2)
+        self.assertEqual(len(t.machine.states), 4)
+        #
         self.assertEqual(t.status, TRANSFER_FAILED[0])
         self.assertEqual(t.failure_code, FAILURE_INSUFFICIENT_FUNDS[0])
         # get accounts
@@ -119,3 +137,9 @@ class EventTestCase(TestAppEngineMixin):
         # assert pending operations
         self.assertEqual(len(account.pending), 1)
         self.assertEqual(len(destination.pending), 1)
+        # assert fail transitions from this state
+        with self.assertRaises(MachineError):
+            t.go_transfer()
+
+        #
+        t.go_cancel()
