@@ -11,7 +11,8 @@ from .general import (TRANSFER_PENDING,
                       TRANSFER_STATUS_MAP,
                       TRANSFER_STATUS_STRING_MAP,
                       TRANSFER_STATUS_STRING_CHOICES,
-                      TRANSFER_STATE_TRANSITIONS)
+                      TRANSFER_STATE_TRANSITIONS,
+                      FAILURE_INSUFFICIENT_FUNDS)
 from ..account.models import (CurrentAccount,
                               DebitAccountTransaction,
                               CreditAccountTransaction)
@@ -32,6 +33,8 @@ class Transfer(AbstractBaseModel):
     # reverse
     reversed = columns.Boolean(default=False)
     value_reversed = columns.UserDefinedType(Amount)
+    # failure
+    failure_code = columns.TinyInt()
 
     def __init__(self, *args, **kwargs):
         super(Transfer, self).__init__(*args, **kwargs)
@@ -58,7 +61,6 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         self.status = TRANSFER_STATUS_STRING_MAP[event.state.name]
-        # self.save()
 
     def create_debit_account_transaction(self, *args, **kwargs):
         """
@@ -94,7 +96,19 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         account = CurrentAccount.objects(id=self.account_id).get()
-        return account.net.amount > 0
+        if account.net.amount <= 0:
+            self.failure_code = FAILURE_INSUFFICIENT_FUNDS[0]
+            return False
+        return True
+
+    def has_failure_code(self, *args, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        return self.failure_code is not None
 
 
 class P2pTransfer(Transfer):

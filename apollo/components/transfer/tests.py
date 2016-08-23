@@ -17,7 +17,10 @@ from apollo.components.account.models import (CurrentAccount,
 from apollo.components.transfer.models import P2pTransfer
 from apollo.components.transfer.custom_types import Amount
 from apollo.components.transfer.general import (TRANSFER_PENDING,
-                                                TRANSFER_PAID)
+                                                TRANSFER_PAID,
+                                                TRANSFER_FAILED,
+                                                TRANSFER_CANCELLED,
+                                                FAILURE_INSUFFICIENT_FUNDS)
 from apollo.common.currencies import DEFAULT_CURRENCY
 
 
@@ -71,20 +74,48 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(t.value_reversed, None)
         # machine
         self.assertEqual(t.state, TRANSFER_PAID[1])
+        # assert is saved
+        self.assertEqual(P2pTransfer.objects.count(), 0)
         # event
         self.assertEqual(Event.objects.filter(parent_id=t.id).count(), 1)
         #
         # get accounts
         account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
         destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
-        # assert available account
+        # assert available funds
         self.assertEqual(account.available.amount, 9500)
         self.assertEqual(account.available.currency, DEFAULT_CURRENCY[0])
-        # assert available destination
         self.assertEqual(destination.available.amount, 500)
         self.assertEqual(destination.available.currency, DEFAULT_CURRENCY[0])
+        # assert pending operations
+        self.assertEqual(len(account.pending), 0)
+        self.assertEqual(len(destination.pending), 0)
 
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer_failure_insufficient_funds(self, *args):
-        print 'test_create_transfer_failure_insufficient_funds'
+        # assert
+        self.assertEqual(P2pTransfer.objects.count(), 0)
+        # get accounts
+        account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
+        destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
+        # assert accounts are empty
+        self.assertEqual(account.available.amount, 0)
+        self.assertEqual(destination.available.amount, 0)
+        # create transfer
+        t = P2pTransfer.create(account_id=account.id,
+                               destination_id=destination.id,
+                               description='last dinner bill',
+                               value=Amount(amount=500, currency=DEFAULT_CURRENCY[0]))
+        self.assertIsNotNone(t.id)
+        self.assertEqual(t.status, TRANSFER_FAILED[0])
+        self.assertEqual(t.failure_code, FAILURE_INSUFFICIENT_FUNDS[0])
+        # get accounts
+        account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
+        destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
+        # assert available funds
+        self.assertEqual(account.available.amount, 0)
+        self.assertEqual(destination.available.amount, 0)
+        # assert pending operations
+        self.assertEqual(len(account.pending), 1)
+        self.assertEqual(len(destination.pending), 1)

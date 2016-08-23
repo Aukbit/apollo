@@ -17,9 +17,9 @@ TRANSFER_STATUS_CHOICES = frozenset(TRANSFER_STATUS_STRING_MAP.values())
 TRANSFER_STATUS_STRING_CHOICES = frozenset(TRANSFER_STATUS_STRING_MAP.keys())
 TRANSFER_STATUS_MAP = dict(zip(TRANSFER_STATUS_STRING_MAP.values(), TRANSFER_STATUS_STRING_MAP.keys()))
 
-# **************
-# TRANSITIONS
-# **************
+# --------------
+# Transitions
+# --------------
 
 """
 TT_PAID
@@ -43,7 +43,7 @@ TT_FAILURE = {
     'trigger': 'go_transfer',
     'source': TRANSFER_PENDING[1],
     'dest': TRANSFER_FAILED[1],
-    'conditions': [],
+    'conditions': ['has_failure_code'],
     'unless': ['has_funds'],
     'before': [],
     'after': []
@@ -52,3 +52,8 @@ TT_FAILURE = {
 
 TRANSFER_STATE_TRANSITIONS = [TT_PAID,
                               TT_FAILURE]
+
+# --------------
+# Failure codes
+# --------------
+FAILURE_INSUFFICIENT_FUNDS = 1, 'insufficient funds'
