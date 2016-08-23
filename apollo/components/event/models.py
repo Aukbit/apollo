@@ -46,7 +46,12 @@ class EventApi(Event):
     EventApi
     """
     __discriminator_value__ = 'api'
+
     log_id = columns.UUID()
+
+    def __init__(self, **values):
+        super(EventApi, self).__init__(**values)
+        self.source_type = self.__discriminator_value__
 
 
 class EventBot(Event):
@@ -54,4 +59,8 @@ class EventBot(Event):
     EventBot
     """
     __discriminator_value__ = 'bot'
+
+    def __init__(self, **values):
+        super(EventBot, self).__init__(**values)
+        self.source_type = self.__discriminator_value__
 

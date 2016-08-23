@@ -20,8 +20,13 @@ class LogHttpRequest(Log):
     Log requests
     """
     __discriminator_value__ = 'http_request'
+
     request = columns.UserDefinedType(Request)
     response = columns.UserDefinedType(Response)
+
+    def __init__(self, **values):
+        super(LogHttpRequest, self).__init__(**values)
+        self.type = self.__discriminator_value__
 
     @classmethod
     def create(cls, **kwargs):

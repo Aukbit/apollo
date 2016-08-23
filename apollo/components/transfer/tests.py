@@ -73,6 +73,18 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(t.state, TRANSFER_PAID[1])
         # event
         self.assertEqual(Event.objects.filter(parent_id=t.id).count(), 1)
+        #
+        # get accounts
+        account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
+        destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
+        # assert available account
+        self.assertEqual(account.available.amount, 9500)
+        self.assertEqual(account.available.currency, DEFAULT_CURRENCY[0])
+        # assert available destination
+        self.assertEqual(destination.available.amount, 500)
+        self.assertEqual(destination.available.currency, DEFAULT_CURRENCY[0])
 
-
-
+    @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
+    @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
+    def test_create_transfer_failure_insufficient_funds(self, *args):
+        print 'test_create_transfer_failure_insufficient_funds'

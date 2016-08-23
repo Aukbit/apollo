@@ -12,7 +12,9 @@ from .general import (TRANSFER_PENDING,
                       TRANSFER_STATUS_STRING_MAP,
                       TRANSFER_STATUS_STRING_CHOICES,
                       TRANSFER_STATE_TRANSITIONS)
-from ..account.models import (DebitAccountTransaction, CreditAccountTransaction)
+from ..account.models import (CurrentAccount,
+                              DebitAccountTransaction,
+                              CreditAccountTransaction)
 from ...common.abstract.models import AbstractBaseModel
 
 
@@ -79,20 +81,20 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         description = '{} credit transfer'.format(self.type)
-        CreditAccountTransaction.create(account_id=self.account_id,
+        CreditAccountTransaction.create(account_id=self.destination_id,
                                         description=description,
                                         value=self.value,
                                         source_id=self.id)
 
-    def has_succeeded(self, *args, **kwargs):
+    def has_funds(self, *args, **kwargs):
         """
 
         :param args:
         :param kwargs:
         :return:
         """
-        print
-        return True
+        account = CurrentAccount.objects(id=self.account_id).get()
+        return account.net.amount > 0
 
 
 class P2pTransfer(Transfer):
@@ -100,6 +102,27 @@ class P2pTransfer(Transfer):
     P2pTransfer
     """
     __discriminator_value__ = 'p2p'
+
     value = columns.UserDefinedType(Amount, required=True)
     destination_id = columns.UUID(required=True)
 
+    def __init__(self, **values):
+        super(P2pTransfer, self).__init__(**values)
+        self.type = self.__discriminator_value__
+
+    def execute_transfer(self, *args, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        # source account
+        account = CurrentAccount.objects(id=self.account_id).get()
+        account.execute_pending(self.id)
+        # destination account
+        destination = CurrentAccount.objects(id=self.destination_id).get()
+        destination.execute_pending(self.id)
+        # save accounts
+        account.save()
+        destination.save()

@@ -30,9 +30,9 @@ TT_PAID = {
     'source': [TRANSFER_PENDING[1]],
     'dest': TRANSFER_PAID[1],
     'prepare': ['create_debit_account_transaction', 'create_credit_account_transaction'],
-    'conditions': ['has_succeeded'],
+    'conditions': ['has_funds'],
     'before': [],
-    'after': []
+    'after': ['execute_transfer']
 }
 
 """
@@ -44,7 +44,7 @@ TT_FAILURE = {
     'source': TRANSFER_PENDING[1],
     'dest': TRANSFER_FAILED[1],
     'conditions': [],
-    'unless': ['has_succeeded'],
+    'unless': ['has_funds'],
     'before': [],
     'after': []
 }

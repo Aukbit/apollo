@@ -13,7 +13,7 @@ def setup_logging(debug=False):
     # stream_handler.setLevel(logging.WARNING)
     verbose = '%(levelname)s %(asctime)s %(name)s %(funcName)s:%(lineno)s] %(message)s'
     stream_handler.setFormatter(logging.Formatter(verbose))
-    logger = logging.getLogger("pluto")
+    logger = logging.getLogger("apollo")
     logger.addHandler(stream_handler)
     if debug:
         logger.setLevel(logging.DEBUG)
