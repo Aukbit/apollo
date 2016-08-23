@@ -16,6 +16,8 @@ from apollo.components.account.models import (CurrentAccount,
                                               AccountTransaction,
                                               DebitAccountTransaction,
                                               CreditAccountTransaction)
+from apollo.components.account.general import (TRANSACTION_PENDING,
+                                               TRANSACTION_AVAILABLE)
 from apollo.components.transfer.models import P2pTransfer
 from apollo.components.transfer.custom_types import Amount
 from apollo.components.transfer.general import (TRANSFER_PENDING,
@@ -84,10 +86,27 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(P2pTransfer.objects.count(), 1)
         # event
         self.assertEqual(Event.objects.filter(parent_id=t.id).count(), 1)
-        # get transitions
+        # get transactions
         self.assertEqual(AccountTransaction.objects.count(), 2)
-        # dat = AccountTransaction.objects.filter(account_id=self.luke.id).get()
-        
+        # get debit transaction
+        dat = DebitAccountTransaction.objects.filter(account_id=account.id).get()
+        self.assertIsNotNone(dat.id)
+        self.assertEqual(dat.description, 'p2p debit transfer')
+        self.assertEqual(dat.value.amount, 500)
+        self.assertEqual(dat.value.currency, DEFAULT_CURRENCY[0])
+        self.assertEqual(dat.source_id, t.id)
+        self.assertEqual(dat.status, TRANSACTION_AVAILABLE[0])
+        self.assertEqual(dat.type, 'debit')
+        # get credit transaction
+        cat = CreditAccountTransaction.objects.filter(account_id=destination.id).get()
+        self.assertIsNotNone(cat.id)
+        self.assertEqual(cat.description, 'p2p credit transfer')
+        self.assertEqual(cat.value.amount, 500)
+        self.assertEqual(cat.value.currency, DEFAULT_CURRENCY[0])
+        self.assertEqual(cat.source_id, t.id)
+        self.assertEqual(cat.status, TRANSACTION_AVAILABLE[0])
+        self.assertEqual(cat.type, 'credit')
+
         # get accounts
         account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
         destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()

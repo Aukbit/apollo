@@ -34,8 +34,8 @@ class AccountTransactionSubscriber(Subscriber):
     def add_pending_transaction(event, account_transaction):
         account = CurrentAccount.objects(id=account_transaction.account_id).get()
         operation = dict()
-        operation[account_transaction.source_id] = Operation(value=account_transaction.value,
-                                                             type=account_transaction.type)
+        operation[account_transaction.id] = Operation(value=account_transaction.value,
+                                                      type=account_transaction.type)
         account.pending.update(operation)
         account.save()
 

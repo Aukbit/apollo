@@ -2,11 +2,16 @@ import logging
 logger = logging.getLogger(__name__)
 import uuid
 import simplejson as json
+from transitions import Machine
 from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 
 from .custom_types import Amount, Operation, Transaction
-from .general import TRANSACTION_PENDING
+from .general import (TRANSACTION_PENDING,
+                      TRANSACTION_STATUS_MAP,
+                      TRANSACTION_STATUS_STRING_MAP,
+                      TRANSACTION_STATUS_STRING_CHOICES,
+                      TRANSACTION_STATE_TRANSITIONS)
 from ...common.abstract.models import AbstractBaseModel
 from ...common.currencies import DEFAULT_CURRENCY
 
@@ -84,8 +89,11 @@ class CurrentAccount(Account):
         try:
             o = self.pending.pop(uuid)
             self.available.update(o)
+            self.save()
+            return True
         except KeyError as e:
             logger.error('No pending operation found with key {}'.format(e))
+            return False
 
 
 class AccountTransaction(AbstractBaseModel):
@@ -102,6 +110,51 @@ class AccountTransaction(AbstractBaseModel):
     status = columns.TinyInt(default=TRANSACTION_PENDING[0], index=True)
     type = columns.Text(discriminator_column=True)
 
+    def __init__(self, *args, **kwargs):
+        super(AccountTransaction, self).__init__(*args, **kwargs)
+        self._init_machine()
+
+    # ---------------
+    # Machine Methods
+    # ---------------
+    def _init_machine(self):
+        """
+        Method to hook a state machine to the instance
+        """
+        states = list(TRANSACTION_STATUS_STRING_CHOICES)
+        transitions = TRANSACTION_STATE_TRANSITIONS
+        self.machine = Machine(model=self, states=states, transitions=transitions,
+                               auto_transitions=False, send_event=True,
+                               initial=TRANSACTION_STATUS_MAP[self.status],
+                               after_state_change='_state_changed')
+
+    def _state_changed(self, event):
+        """
+        callback from state machine to change status on instance and persist
+        :param event: EventData
+        :return:
+        """
+        self.status = TRANSACTION_STATUS_STRING_MAP[event.state.name]
+        self.save()
+
+    def execute_operation(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        account = CurrentAccount.objects(id=self.account_id).get()
+        result = account.execute_pending(self.id)
+        event.kwargs.update({'result': result})
+
+    def has_operation_succeed(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        return event.kwargs.get('result', False)
+
 
 class DebitAccountTransaction(AccountTransaction):
     """
@@ -110,7 +163,7 @@ class DebitAccountTransaction(AccountTransaction):
     __discriminator_value__ = 'debit'
 
     def __init__(self, **values):
-        super(AccountTransaction, self).__init__(**values)
+        super(DebitAccountTransaction, self).__init__(**values)
         self.type = self.__discriminator_value__
 
 
@@ -121,5 +174,5 @@ class CreditAccountTransaction(AccountTransaction):
     __discriminator_value__ = 'credit'
 
     def __init__(self, **values):
-        super(AccountTransaction, self).__init__(**values)
+        super(CreditAccountTransaction, self).__init__(**values)
         self.type = self.__discriminator_value__

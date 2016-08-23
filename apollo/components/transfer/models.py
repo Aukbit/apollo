@@ -56,13 +56,14 @@ class Transfer(AbstractBaseModel):
 
     def _state_changed(self, event):
         """
-        callback from state machine to change status on instance
+        callback from state machine to change status on instance and persist
         :param event: EventData
         :return:
         """
         self.status = TRANSFER_STATUS_STRING_MAP[event.state.name]
+        self.save()
 
-    def create_debit_account_transaction(self, *args, **kwargs):
+    def create_debit_account_transaction(self, event, **kwargs):
         """
 
         :param args:
@@ -70,12 +71,13 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         description = '{} debit transfer'.format(self.type)
-        DebitAccountTransaction.create(account_id=self.account_id,
-                                       description=description,
-                                       value=self.value,
-                                       source_id=self.id)
+        dat = DebitAccountTransaction.create(account_id=self.account_id,
+                                             description=description,
+                                             value=self.value,
+                                             source_id=self.id)
+        event.kwargs.update({'debit_account_transaction': dat})
 
-    def create_credit_account_transaction(self, *args, **kwargs):
+    def create_credit_account_transaction(self, event, **kwargs):
         """
 
         :param args:
@@ -83,12 +85,13 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         description = '{} credit transfer'.format(self.type)
-        CreditAccountTransaction.create(account_id=self.destination_id,
-                                        description=description,
-                                        value=self.value,
-                                        source_id=self.id)
+        cat = CreditAccountTransaction.create(account_id=self.destination_id,
+                                              description=description,
+                                              value=self.value,
+                                              source_id=self.id)
+        event.kwargs.update({'credit_account_transaction': cat})
 
-    def has_funds(self, *args, **kwargs):
+    def has_funds(self, event, **kwargs):
         """
 
         :param args:
@@ -101,7 +104,7 @@ class Transfer(AbstractBaseModel):
             return False
         return True
 
-    def has_failure_code(self, *args, **kwargs):
+    def has_failure_code(self, event, **kwargs):
         """
 
         :param args:
@@ -124,7 +127,7 @@ class P2pTransfer(Transfer):
         super(P2pTransfer, self).__init__(**values)
         self.type = self.__discriminator_value__
 
-    def execute_transfer(self, *args, **kwargs):
+    def execute_transfer(self, event, **kwargs):
         """
 
         :param args:
@@ -132,11 +135,24 @@ class P2pTransfer(Transfer):
         :return:
         """
         # source account
-        account = CurrentAccount.objects(id=self.account_id).get()
-        account.execute_pending(self.id)
-        # destination account
-        destination = CurrentAccount.objects(id=self.destination_id).get()
-        destination.execute_pending(self.id)
-        # save accounts
-        account.save()
-        destination.save()
+        # account = CurrentAccount.objects(id=self.account_id).get()
+        # account_result = account.execute_pending(self.id)
+        # # destination account
+        # destination = CurrentAccount.objects(id=self.destination_id).get()
+        # destination_result = destination.execute_pending(self.id)
+        # # save accounts and update transactions
+        # if account_result:
+        #     dat = event.kwargs.get('debit_account_transaction')
+        #     if isinstance(dat, DebitAccountTransaction):
+        #         dat.status =
+        #     account.save()
+        # if destination_result:
+        #     destination.save()
+
+        dat = event.kwargs.get('debit_account_transaction')
+        if isinstance(dat, DebitAccountTransaction):
+            dat.go_available()
+
+        cat = event.kwargs.get('credit_account_transaction')
+        if isinstance(cat, CreditAccountTransaction):
+            cat.go_available()
