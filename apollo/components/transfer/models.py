@@ -61,7 +61,6 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         self.status = TRANSFER_STATUS_STRING_MAP[event.state.name]
-        self.save()
 
     def create_debit_account_transaction(self, event, **kwargs):
         """
@@ -134,25 +133,13 @@ class P2pTransfer(Transfer):
         :param kwargs:
         :return:
         """
-        # source account
-        # account = CurrentAccount.objects(id=self.account_id).get()
-        # account_result = account.execute_pending(self.id)
-        # # destination account
-        # destination = CurrentAccount.objects(id=self.destination_id).get()
-        # destination_result = destination.execute_pending(self.id)
-        # # save accounts and update transactions
-        # if account_result:
-        #     dat = event.kwargs.get('debit_account_transaction')
-        #     if isinstance(dat, DebitAccountTransaction):
-        #         dat.status =
-        #     account.save()
-        # if destination_result:
-        #     destination.save()
-
+        #
         dat = event.kwargs.get('debit_account_transaction')
         if isinstance(dat, DebitAccountTransaction):
-            dat.go_available()
-
+            if dat.go_available():
+                dat.save()
+        #
         cat = event.kwargs.get('credit_account_transaction')
         if isinstance(cat, CreditAccountTransaction):
-            cat.go_available()
+            if cat.go_available():
+                cat.save()

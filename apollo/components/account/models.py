@@ -135,7 +135,6 @@ class AccountTransaction(AbstractBaseModel):
         :return:
         """
         self.status = TRANSACTION_STATUS_STRING_MAP[event.state.name]
-        self.save()
 
     def execute_operation(self, event, **kwargs):
         """
