@@ -1,14 +1,14 @@
-
-TRANSFER_PENDING = 10, 'pending'
-TRANSFER_IN_TRANSIT = 20, 'in_transit'
-TRANSFER_PAID = 30, 'transferred'
-TRANSFER_CANCELLED = 50, 'cancelled'
-TRANSFER_FAILED = 60, 'failed'
+TRANSFER_CREATED = 10, 'created'
+TRANSFER_PENDING = 20, 'pending'
+TRANSFER_SUCCEED = 50, 'succeed'
+TRANSFER_CANCELLED = 80, 'cancelled'
+TRANSFER_FAILED = 90, 'failed'
 
 
 TRANSFER_STATUS_STRING_MAP = {
+    TRANSFER_CREATED[1]: TRANSFER_CREATED[0],
     TRANSFER_PENDING[1]: TRANSFER_PENDING[0],
-    TRANSFER_PAID[1]: TRANSFER_PAID[0],
+    TRANSFER_SUCCEED[1]: TRANSFER_SUCCEED[0],
     TRANSFER_CANCELLED[1]: TRANSFER_CANCELLED[0],
     TRANSFER_FAILED[1]: TRANSFER_FAILED[0]
 }
@@ -22,29 +22,47 @@ TRANSFER_STATUS_MAP = dict(zip(TRANSFER_STATUS_STRING_MAP.values(), TRANSFER_STA
 # --------------
 
 """
-TT_PAID
-Transfer paid
+TT_PREPARE
+Transfer prepare transactions
 """
-TT_PAID = {
-    'trigger': 'go_transfer',
-    'source': [TRANSFER_PENDING[1]],
-    'dest': TRANSFER_PAID[1],
-    'prepare': ['create_debit_account_transaction', 'create_credit_account_transaction'],
-    'conditions': ['has_funds'],
+TT_PREPARE = {
+    'trigger': 'go_prepare',
+    'source': [TRANSFER_CREATED[1]],
+    'dest': TRANSFER_PENDING[1],
+    'prepare': ['create_debit_account_transaction',
+                'create_credit_account_transaction'],
+    'conditions': [],
+    'unless': [],
     'before': [],
-    'after': ['execute_transfer']
+    'after': []
 }
 
 """
-TT_FAILURE
+TT_EXECUTE_SUCCEED
 Transfer failed
 """
-TT_FAILURE = {
-    'trigger': 'go_transfer',
+TT_EXECUTE_SUCCEED = {
+    'trigger': 'go_execute',
+    'source': [TRANSFER_PENDING[1]],
+    'dest': TRANSFER_SUCCEED[1],
+    'prepare': ['execute_operation'],
+    'conditions': ['has_transactions_succeed'],
+    'unless': [],
+    'before': [],
+    'after': []
+}
+
+"""
+TT_EXECUTE_FAILURE
+Transfer failed
+"""
+TT_EXECUTE_FAILURE = {
+    'trigger': 'go_execute',
     'source': TRANSFER_PENDING[1],
     'dest': TRANSFER_FAILED[1],
+    'prepare': [],
     'conditions': ['has_failure_code'],
-    'unless': ['has_funds'],
+    'unless': ['has_transactions_succeed'],
     'before': [],
     'after': []
 }
@@ -55,7 +73,7 @@ Transfer cancelled
 """
 TT_CANCEL = {
     'trigger': 'go_cancel',
-    'source': [TRANSFER_FAILED[1]],
+    'source': [TRANSFER_PENDING[1]],
     'dest': TRANSFER_CANCELLED[1],
     'conditions': [],
     'unless': [],
@@ -63,11 +81,9 @@ TT_CANCEL = {
     'after': []
 }
 
-TRANSFER_STATE_TRANSITIONS = [TT_PAID,
-                              TT_FAILURE,
+TRANSFER_STATE_TRANSITIONS = [TT_PREPARE,
+                              TT_EXECUTE_SUCCEED,
+                              TT_EXECUTE_FAILURE,
                               TT_CANCEL]
 
-# --------------
-# Failure codes
-# --------------
-FAILURE_INSUFFICIENT_FUNDS = 1, 'insufficient funds'
+

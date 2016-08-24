@@ -7,13 +7,14 @@ from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 
 from .custom_types import Amount, Operation, Transaction
-from .general import (TRANSACTION_PENDING,
+from .general import (TRANSACTION_CREATED,
                       TRANSACTION_STATUS_MAP,
                       TRANSACTION_STATUS_STRING_MAP,
                       TRANSACTION_STATUS_STRING_CHOICES,
                       TRANSACTION_STATE_TRANSITIONS)
 from ...common.abstract.models import AbstractBaseModel
 from ...common.currencies import DEFAULT_CURRENCY
+from ...common.failure_codes import FAILURE_INVALID_SIGNATURE
 
 
 class Account(AbstractBaseModel):
@@ -41,7 +42,7 @@ class CurrentAccount(Account):
     # --------------
     def save(self):
         """
-        note: convert key UUID to <type 'str'> in self.pending
+        Note: convert key UUID to <type 'str'> in self.pending
         """
         for o in self.pending:
             if isinstance(o, uuid.UUID):
@@ -107,8 +108,13 @@ class AccountTransaction(AbstractBaseModel):
     description = columns.Text()
     value = columns.UserDefinedType(Amount)
     source_id = columns.UUID()
-    status = columns.TinyInt(default=TRANSACTION_PENDING[0], index=True)
+    signature = columns.Text()
     type = columns.Text(discriminator_column=True)
+    status = columns.TinyInt(default=TRANSACTION_CREATED[0], index=True)
+    # failure code
+    failure_code = columns.SmallInt()
+    # cancel reason
+    cancel_reason = columns.Text()
 
     def __init__(self, *args, **kwargs):
         super(AccountTransaction, self).__init__(*args, **kwargs)
@@ -145,6 +151,27 @@ class AccountTransaction(AbstractBaseModel):
         account = CurrentAccount.objects(id=self.account_id).get()
         result = account.execute_pending(self.id)
         event.kwargs.update({'result': result})
+
+    def has_valid_signature(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        # TODO: validate signature method
+        signature = event.kwargs.get('signature')
+        if signature is not 'signature':
+            self.failure_code = FAILURE_INVALID_SIGNATURE[0]
+            return False
+        return True
+
+    def has_failure_code(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        return self.failure_code is not None
 
     def has_operation_succeed(self, event, **kwargs):
         """

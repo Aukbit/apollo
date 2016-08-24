@@ -13,7 +13,7 @@ class TransferSubscriber(Subscriber):
         event = kwargs.get('instance', None)
         transfer = kwargs.get('parent', None)
         if event is not None and transfer is not None:
-            transfer.go_transfer()
+            transfer.go_prepare()
 
 
 transfer_subscriber = TransferSubscriber(senders=['event.transfer.created'])

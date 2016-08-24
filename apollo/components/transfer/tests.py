@@ -16,16 +16,21 @@ from apollo.components.account.models import (CurrentAccount,
                                               AccountTransaction,
                                               DebitAccountTransaction,
                                               CreditAccountTransaction)
-from apollo.components.account.general import (TRANSACTION_PENDING,
-                                               TRANSACTION_AVAILABLE)
+from apollo.components.account.general import (TRANSACTION_CREATED,
+                                               TRANSACTION_SEALED,
+                                               TRANSACTION_SUCCEED,
+                                               TRANSACTION_CANCELLED,
+                                               TRANSACTION_FAILED)
 from apollo.components.transfer.models import P2pTransfer
 from apollo.components.transfer.custom_types import Amount
-from apollo.components.transfer.general import (TRANSFER_PENDING,
-                                                TRANSFER_PAID,
-                                                TRANSFER_FAILED,
+from apollo.components.transfer.general import (TRANSFER_CREATED,
+                                                TRANSFER_PENDING,
+                                                TRANSFER_SUCCEED,
                                                 TRANSFER_CANCELLED,
-                                                FAILURE_INSUFFICIENT_FUNDS)
+                                                TRANSFER_FAILED)
 from apollo.common.currencies import DEFAULT_CURRENCY
+from apollo.common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
+                                         FAILURE_INVALID_SIGNATURE)
 
 
 class EventTestCase(TestAppEngineMixin):
@@ -48,8 +53,9 @@ class EventTestCase(TestAppEngineMixin):
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer(self, *args):
-        # assert
+        # assert null
         self.assertEqual(P2pTransfer.objects.count(), 0)
+        self.assertEqual(AccountTransaction.objects.count(), 0)
         # get accounts
         account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
         destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
@@ -60,15 +66,18 @@ class EventTestCase(TestAppEngineMixin):
         account.available.amount = 10000
         account.save()
         self.assertEqual(account.available.amount, 10000)
+        #
         # create transfer
+        #
         t = P2pTransfer.create(account_id=account.id,
                                destination_id=destination.id,
                                description='last dinner bill',
                                value=Amount(amount=500, currency=DEFAULT_CURRENCY[0]))
         self.assertIsNotNone(t.id)
-        # assert state machine
-        self.assertEqual(len(t.machine.events), 2)
-        self.assertEqual(len(t.machine.states), 4)
+        # assert transfer state machine
+        self.assertEqual(len(t.machine.events), 3)
+        self.assertEqual(len(t.machine.states), 5)
+        self.assertEqual(t.state, TRANSFER_PENDING[1])
         #
         self.assertEqual(t.account_id, account.id)
         self.assertEqual(t.destination_id, destination.id)
@@ -76,38 +85,63 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(t.value.amount, 500)
         self.assertEqual(t.value.currency, DEFAULT_CURRENCY[0])
         self.assertEqual(t.type, 'p2p')
-        self.assertEqual(t.status, TRANSFER_PAID[0])
+        self.assertEqual(t.status, TRANSFER_PENDING[0])
         # reverse
         self.assertEqual(t.reversed, False)
         self.assertEqual(t.value_reversed, None)
-        # machine
-        self.assertEqual(t.state, TRANSFER_PAID[1])
         # assert is saved
         self.assertEqual(P2pTransfer.objects.count(), 1)
         # event
         self.assertEqual(Event.objects.filter(parent_id=t.id).count(), 1)
         # get transactions
         self.assertEqual(AccountTransaction.objects.count(), 2)
+        #
         # get debit transaction
+        #
         dat = DebitAccountTransaction.objects.filter(account_id=account.id).get()
         self.assertIsNotNone(dat.id)
+        # assert transaction state machine
+        self.assertEqual(len(dat.machine.events), 3)
+        self.assertEqual(len(dat.machine.states), 5)
+        self.assertEqual(dat.state, TRANSACTION_CREATED[1])
+        #
         self.assertEqual(dat.description, 'p2p debit transfer')
         self.assertEqual(dat.value.amount, 500)
         self.assertEqual(dat.value.currency, DEFAULT_CURRENCY[0])
         self.assertEqual(dat.source_id, t.id)
-        self.assertEqual(dat.status, TRANSACTION_AVAILABLE[0])
+        self.assertEqual(dat.status, TRANSACTION_CREATED[0])
         self.assertEqual(dat.type, 'debit')
+        # assert fail transitions from this state
+        with self.assertRaises(MachineError):
+            dat.go_execute()
+        # sign and seal debit account transaction
+        dat.go_sign_and_seal(signature='signature')
+        self.assertEqual(dat.status, TRANSACTION_SEALED[0])
+
+        #
         # get credit transaction
+        #
         cat = CreditAccountTransaction.objects.filter(account_id=destination.id).get()
         self.assertIsNotNone(cat.id)
+        # assert transaction state machine
+        self.assertEqual(len(cat.machine.events), 3)
+        self.assertEqual(len(cat.machine.states), 5)
+        self.assertEqual(cat.state, TRANSACTION_CREATED[1])
+        #
         self.assertEqual(cat.description, 'p2p credit transfer')
         self.assertEqual(cat.value.amount, 500)
         self.assertEqual(cat.value.currency, DEFAULT_CURRENCY[0])
         self.assertEqual(cat.source_id, t.id)
-        self.assertEqual(cat.status, TRANSACTION_AVAILABLE[0])
+        self.assertEqual(cat.status, TRANSACTION_CREATED[0])
         self.assertEqual(cat.type, 'credit')
-
+        with self.assertRaises(MachineError):
+            cat.go_execute()
+        # sign and seal debit account transaction
+        cat.go_sign_and_seal(signature='signature')
+        self.assertEqual(cat.status, TRANSACTION_SEALED[0])
+        #
         # get accounts
+        #
         account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
         destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
         # assert available funds

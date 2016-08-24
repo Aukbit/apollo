@@ -7,16 +7,16 @@ from cassandra.cqlengine.models import Model
 from transitions import Machine
 
 from .custom_types import Amount
-from .general import (TRANSFER_PENDING,
+from .general import (TRANSFER_CREATED,
                       TRANSFER_STATUS_MAP,
                       TRANSFER_STATUS_STRING_MAP,
                       TRANSFER_STATUS_STRING_CHOICES,
-                      TRANSFER_STATE_TRANSITIONS,
-                      FAILURE_INSUFFICIENT_FUNDS)
+                      TRANSFER_STATE_TRANSITIONS)
 from ..account.models import (CurrentAccount,
                               DebitAccountTransaction,
                               CreditAccountTransaction)
 from ...common.abstract.models import AbstractBaseModel
+from ...common.failure_codes import FAILURE_INSUFFICIENT_FUNDS
 
 
 class Transfer(AbstractBaseModel):
@@ -29,12 +29,12 @@ class Transfer(AbstractBaseModel):
     account_id = columns.UUID(required=True)
     description = columns.Text()
     type = columns.Text(discriminator_column=True)
-    status = columns.TinyInt(default=TRANSFER_PENDING[0])
+    status = columns.TinyInt(default=TRANSFER_CREATED[0])
     # reverse
     reversed = columns.Boolean(default=False)
     value_reversed = columns.UserDefinedType(Amount)
     # failure
-    failure_code = columns.TinyInt()
+    failure_code = columns.SmallInt()
 
     def __init__(self, *args, **kwargs):
         super(Transfer, self).__init__(*args, **kwargs)
@@ -126,7 +126,7 @@ class P2pTransfer(Transfer):
         super(P2pTransfer, self).__init__(**values)
         self.type = self.__discriminator_value__
 
-    def execute_transfer(self, event, **kwargs):
+    def execute_operation(self, event, **kwargs):
         """
 
         :param args:
