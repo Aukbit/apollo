@@ -34,7 +34,7 @@ TT_SIGN_AND_SEAL = {
     'conditions': ['has_valid_signature'],
     'unless': [],
     'before': [],
-    'after': []
+    'after': ['execute_transfer']
 }
 
 """

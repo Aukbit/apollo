@@ -19,7 +19,7 @@ class UserSubscriber(Subscriber):
                               name=account_name)
 
     def on_event(self, sender, **kwargs):
-        super(UserSubscriber, self).on_save(sender, **kwargs)
+        super(UserSubscriber, self).on_event(sender, **kwargs)
         event = kwargs.get('instance', None)
         user = kwargs.get('parent', None)
         if event is not None and user is not None:
@@ -40,10 +40,41 @@ class AccountTransactionSubscriber(Subscriber):
         account.save()
 
     def on_event(self, sender, **kwargs):
-        super(AccountTransactionSubscriber, self).on_save(sender, **kwargs)
+        super(AccountTransactionSubscriber, self).on_event(sender, **kwargs)
         event = kwargs.get('instance', None)
         account_transaction = kwargs.get('parent', None)
         if event is not None and account_transaction is not None and account_transaction.status == TRANSACTION_CREATED[0]:
             self.add_pending_transaction(event, account_transaction)
 
 account_transaction_subscriber = AccountTransactionSubscriber(senders=['event.account_transaction.created'])
+
+
+class TransferSubscriber(Subscriber):
+
+    @staticmethod
+    def create_debit_account_transaction(event, transfer):
+        description = '{} debit transfer'.format(transfer.type)
+        dat = DebitAccountTransaction.create(account_id=transfer.account_id,
+                                             description=description,
+                                             value=transfer.value,
+                                             source_id=transfer.id)
+        print dat
+
+    @staticmethod
+    def create_credit_account_transaction(event, transfer):
+        description = '{} credit transfer'.format(transfer.type)
+        cat = CreditAccountTransaction.create(account_id=transfer.destination_id,
+                                              description=description,
+                                              value=transfer.value,
+                                              source_id=transfer.id)
+        print cat
+
+    def on_event(self, sender, **kwargs):
+        super(TransferSubscriber, self).on_event(sender, **kwargs)
+        event = kwargs.get('instance', None)
+        transfer = kwargs.get('parent', None)
+        if event is not None and transfer is not None:
+            self.create_debit_account_transaction(event, transfer)
+            self.create_credit_account_transaction(event, transfer)
+
+transfer_subscriber = TransferSubscriber(senders=['event.transfer.created'])

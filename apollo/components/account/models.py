@@ -152,6 +152,14 @@ class AccountTransaction(AbstractBaseModel):
         result = account.execute_pending(self.id)
         event.kwargs.update({'result': result})
 
+    def execute_transfer(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        print 'execute_transfer', self.source_id
+
     def has_valid_signature(self, event, **kwargs):
         """
 

@@ -7,14 +7,14 @@ from cassandra.cqlengine.models import Model
 from transitions import Machine
 
 from .custom_types import Amount
-from .general import (TRANSFER_CREATED,
+from .general import (TRANSFER_PENDING,
                       TRANSFER_STATUS_MAP,
                       TRANSFER_STATUS_STRING_MAP,
                       TRANSFER_STATUS_STRING_CHOICES,
                       TRANSFER_STATE_TRANSITIONS)
-from ..account.models import (CurrentAccount,
-                              DebitAccountTransaction,
-                              CreditAccountTransaction)
+# from ..account.models import (CurrentAccount,
+#                               DebitAccountTransaction,
+#                               CreditAccountTransaction)
 from ...common.abstract.models import AbstractBaseModel
 from ...common.failure_codes import FAILURE_INSUFFICIENT_FUNDS
 
@@ -29,7 +29,7 @@ class Transfer(AbstractBaseModel):
     account_id = columns.UUID(required=True)
     description = columns.Text()
     type = columns.Text(discriminator_column=True)
-    status = columns.TinyInt(default=TRANSFER_CREATED[0])
+    status = columns.TinyInt(default=TRANSFER_PENDING[0])
     # reverse
     reversed = columns.Boolean(default=False)
     value_reversed = columns.UserDefinedType(Amount)
@@ -69,12 +69,13 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        description = '{} debit transfer'.format(self.type)
-        dat = DebitAccountTransaction.create(account_id=self.account_id,
-                                             description=description,
-                                             value=self.value,
-                                             source_id=self.id)
-        event.kwargs.update({'debit_account_transaction': dat})
+        pass
+        # description = '{} debit transfer'.format(self.type)
+        # dat = DebitAccountTransaction.create(account_id=self.account_id,
+        #                                      description=description,
+        #                                      value=self.value,
+        #                                      source_id=self.id)
+        # event.kwargs.update({'debit_account_transaction': dat})
 
     def create_credit_account_transaction(self, event, **kwargs):
         """
@@ -83,12 +84,13 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        description = '{} credit transfer'.format(self.type)
-        cat = CreditAccountTransaction.create(account_id=self.destination_id,
-                                              description=description,
-                                              value=self.value,
-                                              source_id=self.id)
-        event.kwargs.update({'credit_account_transaction': cat})
+        pass
+        # description = '{} credit transfer'.format(self.type)
+        # cat = CreditAccountTransaction.create(account_id=self.destination_id,
+        #                                       description=description,
+        #                                       value=self.value,
+        #                                       source_id=self.id)
+        # event.kwargs.update({'credit_account_transaction': cat})
 
     def has_funds(self, event, **kwargs):
         """
@@ -97,11 +99,12 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        account = CurrentAccount.objects(id=self.account_id).get()
-        if account.net.amount <= 0:
-            self.failure_code = FAILURE_INSUFFICIENT_FUNDS[0]
-            return False
-        return True
+        pass
+        # account = CurrentAccount.objects(id=self.account_id).get()
+        # if account.net.amount <= 0:
+        #     self.failure_code = FAILURE_INSUFFICIENT_FUNDS[0]
+        #     return False
+        # return True
 
     def has_failure_code(self, event, **kwargs):
         """
@@ -133,13 +136,14 @@ class P2pTransfer(Transfer):
         :param kwargs:
         :return:
         """
-        #
-        dat = event.kwargs.get('debit_account_transaction')
-        if isinstance(dat, DebitAccountTransaction):
-            if dat.go_available():
-                dat.save()
-        #
-        cat = event.kwargs.get('credit_account_transaction')
-        if isinstance(cat, CreditAccountTransaction):
-            if cat.go_available():
-                cat.save()
+        pass
+        # #
+        # dat = event.kwargs.get('debit_account_transaction')
+        # if isinstance(dat, DebitAccountTransaction):
+        #     if dat.go_available():
+        #         dat.save()
+        # #
+        # cat = event.kwargs.get('credit_account_transaction')
+        # if isinstance(cat, CreditAccountTransaction):
+        #     if cat.go_available():
+        #         cat.save()
