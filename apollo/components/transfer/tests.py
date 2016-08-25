@@ -147,7 +147,9 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(len(destination.pending), 0)
         # assert fail transitions from this state
         with self.assertRaises(MachineError):
-            t.go_cancel()
+            t.go_sign_and_seal()
+        with self.assertRaises(MachineError):
+            t.go_execute()
 
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")

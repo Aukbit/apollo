@@ -75,36 +75,6 @@ class Transfer(AbstractBaseModel):
         if persist:
             self.save()
 
-    def create_debit_account_transaction(self, event, **kwargs):
-        """
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        pass
-        # description = '{} debit transfer'.format(self.type)
-        # dat = DebitAccountTransaction.create(account_id=self.account_id,
-        #                                      description=description,
-        #                                      value=self.value,
-        #                                      source_id=self.id)
-        # event.kwargs.update({'debit_account_transaction': dat})
-
-    def create_credit_account_transaction(self, event, **kwargs):
-        """
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        pass
-        # description = '{} credit transfer'.format(self.type)
-        # cat = CreditAccountTransaction.create(account_id=self.destination_id,
-        #                                       description=description,
-        #                                       value=self.value,
-        #                                       source_id=self.id)
-        # event.kwargs.update({'credit_account_transaction': cat})
-
     def set_account_signature(self, event, **kwargs):
         """
 
@@ -188,20 +158,6 @@ class Transfer(AbstractBaseModel):
         if dst_txn.is_failed():
             self.failure_code = FAILURE_INVALID_ACCOUNT_OPERATION_ERROR[0]
         return False
-
-    def has_funds(self, event, **kwargs):
-        """
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        pass
-        # account = CurrentAccount.objects(id=self.account_id).get()
-        # if account.net.amount <= 0:
-        #     self.failure_code = FAILURE_INSUFFICIENT_FUNDS[0]
-        #     return False
-        # return True
 
     def has_failure_code(self, event, **kwargs):
         """
