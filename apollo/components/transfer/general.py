@@ -74,7 +74,8 @@ TT_CANCEL = {
     'trigger': 'go_cancel',
     'source': [TRANSFER_CREATED[1]],
     'dest': TRANSFER_CANCELLED[1],
-    'conditions': [],
+    'prepare': ['set_user', 'set_reason', 'execute_cancel'],
+    'conditions': ['has_cancel_fields'],
     'unless': [],
     'before': [],
     'after': []
@@ -82,6 +83,7 @@ TT_CANCEL = {
 
 TRANSFER_STATE_TRANSITIONS = [TT_PREPARE,
                               TT_EXECUTE_SUCCEED,
-                              TT_EXECUTE_FAILURE]
+                              TT_EXECUTE_FAILURE,
+                              TT_CANCEL]
 
 

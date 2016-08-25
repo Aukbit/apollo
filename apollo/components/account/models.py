@@ -94,15 +94,26 @@ class CurrentAccount(Account):
     # --------------
     # Methods
     # --------------
-    def execute_pending(self, uuid=None):
+    def _pop_pending(self, id=None):
         try:
-            o = self.pending.pop(uuid)
-            self.available.update(o)
-            self.save()
-            return Response()
+            return self.pending.pop(id)
         except KeyError as e:
             logger.error('No pending operation found with key {}'.format(e))
             return Response(error=FAILURE_TRANSACTION_OPERATION_ERROR)
+
+    def execute_pending(self, id=None):
+        o = self._pop_pending(id)
+        if isinstance(o, Response):
+            return o
+        # make transaction amount available
+        self.available.update(o)
+        return Response()
+
+    def cancel_pending(self, id=None):
+        o = self._pop_pending(id)
+        if isinstance(o, Response):
+            return o
+        return Response()
 
 
 class AccountTransaction(AbstractBaseModel):
@@ -121,8 +132,6 @@ class AccountTransaction(AbstractBaseModel):
     status = columns.TinyInt(default=TRANSACTION_PENDING[0], index=True)
     # failure code
     failure_code = columns.SmallInt()
-    # cancel reason
-    cancel_reason = columns.Text()
 
     def __init__(self, *args, **kwargs):
         super(AccountTransaction, self).__init__(*args, **kwargs)
@@ -162,14 +171,31 @@ class AccountTransaction(AbstractBaseModel):
         if transfer is None:
             raise TransferNotAvailable
 
-        if transfer.is_sealed:
+        if transfer.is_sealed():
             account = CurrentAccount.objects(id=self.account_id).get()
             response = account.execute_pending(self.id)
             event.kwargs.update({'operation_response': response})
+            account.save()
         else:
             event.kwargs.update({'operation_response': Response(error=FAILURE_TRANSFER_IS_NOT_SEALED)})
 
-    def has_operation_succeed(self, event, **kwargs):
+    def execute_cancel(self, event, **kwargs):
+        """
+
+        :param event: EventData
+        :return:
+        """
+        transfer = event.kwargs.get('transfer')
+        if transfer is None:
+            raise TransferNotAvailable
+
+        if transfer.is_created():
+            account = CurrentAccount.objects(id=self.account_id).get()
+            response = account.cancel_pending(self.id)
+            event.kwargs.update({'operation_response': response})
+            account.save()
+
+    def has_execute_succeed(self, event, **kwargs):
         """
 
         :param event: EventData

@@ -27,7 +27,7 @@ TT_EXECUTE_SUCCEED = {
     'source': [TRANSACTION_PENDING[1]],
     'dest': TRANSACTION_SUCCEED[1],
     'prepare': ['execute_operation'],
-    'conditions': ['has_operation_succeed'],
+    'conditions': ['has_execute_succeed'],
     'unless': [],
     'before': [],
     'after': []
@@ -43,7 +43,7 @@ TT_EXECUTE_FAILURE = {
     'dest': TRANSACTION_FAILED[1],
     'prepare': [],
     'conditions': ['has_failure_code'],
-    'unless': ['has_operation_succeed'],
+    'unless': ['has_execute_succeed'],
     'before': [],
     'after': []
 }
@@ -56,15 +56,16 @@ TT_CANCEL = {
     'trigger': 'go_cancel',
     'source': [TRANSACTION_PENDING[1]],
     'dest': TRANSACTION_CANCELLED[1],
-    'prepare': [],
-    'conditions': ['has_cancel_reason'],
+    'prepare': ['execute_cancel'],
+    'conditions': ['has_execute_succeed'],
     'unless': [],
     'before': [],
     'after': []
 }
 
 TRANSACTION_STATE_TRANSITIONS = [TT_EXECUTE_SUCCEED,
-                                 TT_EXECUTE_FAILURE]
+                                 TT_EXECUTE_FAILURE,
+                                 TT_CANCEL]
 
 
 # --------------

@@ -13,8 +13,12 @@ from .general import (TRANSFER_CREATED,
                       TRANSFER_STATUS_STRING_CHOICES,
                       TRANSFER_STATE_TRANSITIONS)
 from .exceptions import (AccountTransactionNotAvailable,
-                         DestinationTransactionNotAvailable)
-from ..account.models import (CurrentAccount)
+                         DestinationTransactionNotAvailable,
+                         UserNotAvailable,
+                         ReasonNotAvailable)
+from ..account.models import (CurrentAccount,
+                              DebitAccountTransaction,
+                              CreditAccountTransaction)
 from ...common.responses import Response
 from ...common.abstract.models import AbstractBaseModel
 from ...common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
@@ -45,6 +49,9 @@ class Transfer(AbstractBaseModel):
     value_reversed = columns.UserDefinedType(Amount)
     # failure
     failure_code = columns.SmallInt()
+    # cancel reason
+    cancel_user_id = columns.UUID()
+    cancel_reason = columns.Text()
 
     def __init__(self, *args, **kwargs):
         super(Transfer, self).__init__(*args, **kwargs)
@@ -74,6 +81,33 @@ class Transfer(AbstractBaseModel):
         persist = event.kwargs.get('persist', False)
         if persist:
             self.save()
+
+    def _is_txn_valid(self, txn=None):
+        return txn is not None and self.id == txn.source_id
+
+    def _get_act_txn(self, event):
+        act_txn = event.kwargs.get('act_txn')
+        if self._is_txn_valid(act_txn):
+            return act_txn
+
+        act_txn = DebitAccountTransaction.objects.filter(account_id=self.account_id).get()
+        if self._is_txn_valid(act_txn):
+            return act_txn
+
+        if act_txn is None:
+            raise AccountTransactionNotAvailable
+
+    def _get_dst_txn(self, event):
+        dst_txn = event.kwargs.get('dst_txn')
+        if self._is_txn_valid(dst_txn):
+            return dst_txn
+
+        dst_txn = CreditAccountTransaction.objects.filter(account_id=self.destination_id).get()
+        if self._is_txn_valid(dst_txn):
+            return dst_txn
+
+        if dst_txn is None:
+            raise DestinationTransactionNotAvailable
 
     def set_account_signature(self, event, **kwargs):
         """
@@ -134,9 +168,7 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        act_txn = event.kwargs.get('act_txn')
-        if act_txn is None:
-            raise AccountTransactionNotAvailable
+        act_txn = self._get_act_txn(event)
         if act_txn.is_succeed():
             return True
         if act_txn.is_failed():
@@ -150,9 +182,7 @@ class Transfer(AbstractBaseModel):
         :param kwargs:
         :return:
         """
-        dst_txn = event.kwargs.get('dst_txn')
-        if dst_txn is None:
-            raise DestinationTransactionNotAvailable
+        dst_txn = self._get_dst_txn(event)
         if dst_txn.is_succeed():
             return True
         if dst_txn.is_failed():
@@ -168,6 +198,41 @@ class Transfer(AbstractBaseModel):
         """
         return self.failure_code is not None
 
+    def set_user(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        user = event.kwargs.get('user')
+        if user is None:
+            raise UserNotAvailable
+
+        self.cancel_user_id = user.id
+
+    def set_reason(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        reason = event.kwargs.get('reason')
+        if reason is None:
+            raise ReasonNotAvailable
+
+        self.cancel_reason = reason
+
+    def has_cancel_fields(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        return self.cancel_reason is not None and self.cancel_user_id is not None
+
 
 class P2pTransfer(Transfer):
     """
@@ -180,20 +245,16 @@ class P2pTransfer(Transfer):
         self.type = self.__discriminator_value__
 
     def _execute_txn(self, txn=None, persist=False):
-        if txn is None:
-            raise AccountTransactionNotAvailable
-        txn.go_execute(transfer=self, persist=persist)
-        return txn
+        if self._is_txn_valid(txn):
+            txn.go_execute(transfer=self, persist=persist)
+            return txn
 
-    def _is_txn_valid(self, txn=None):
-        if txn is None:
-            raise AccountTransactionNotAvailable
-        return self.id == txn.source_id
+    def _cancel_txn(self, txn=None, persist=False):
+        if self._is_txn_valid(txn):
+            txn.go_cancel(transfer=self, persist=persist)
+            return txn
 
     def _has_txn_funds(self, txn=None):
-        if txn is None:
-            raise AccountTransactionNotAvailable
-
         if self._is_txn_valid(txn):
             act = CurrentAccount.objects(id=txn.account_id).get()
             if act.has_funds:
@@ -210,11 +271,28 @@ class P2pTransfer(Transfer):
         """
         persist = event.kwargs.get('persist', False)
         # confirm if account has funds
-        act_txn = event.kwargs.get('act_txn')
+        act_txn = self._get_act_txn(event)
         if self._has_txn_funds(act_txn):
             act_txn = self._execute_txn(act_txn, persist)
             event.kwargs.update({'act_txn': act_txn})
             #
-            dst_txn = event.kwargs.get('dst_txn')
+            dst_txn = self._get_dst_txn(event)
             dst_txn = self._execute_txn(dst_txn, persist)
             event.kwargs.update({'dst_txn': dst_txn})
+
+    def execute_cancel(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        persist = event.kwargs.get('persist', False)
+        #
+        act_txn = self._get_act_txn(event)
+        act_txn = self._cancel_txn(act_txn, persist)
+        event.kwargs.update({'act_txn': act_txn})
+        #
+        dst_txn = self._get_dst_txn(event)
+        dst_txn = self._cancel_txn(dst_txn, persist)
+        event.kwargs.update({'dst_txn': dst_txn})
