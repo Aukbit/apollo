@@ -7,14 +7,18 @@ from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 
 from .custom_types import Amount, Operation, Transaction
-from .general import (TRANSACTION_CREATED,
+from .general import (TRANSACTION_PENDING,
                       TRANSACTION_STATUS_MAP,
                       TRANSACTION_STATUS_STRING_MAP,
                       TRANSACTION_STATUS_STRING_CHOICES,
                       TRANSACTION_STATE_TRANSITIONS)
+from .exceptions import TransferNotAvailable
+from ...common.responses import Response
 from ...common.abstract.models import AbstractBaseModel
 from ...common.currencies import DEFAULT_CURRENCY
-from ...common.failure_codes import FAILURE_INVALID_SIGNATURE
+from ...common.failure_codes import (FAILURE_TRANSACTION_OPERATION_ERROR,
+                                     FAILURE_TRANSFER_IS_NOT_SEALED,
+                                     FAILURE_INSUFFICIENT_FUNDS)
 
 
 class Account(AbstractBaseModel):
@@ -79,6 +83,10 @@ class CurrentAccount(Account):
         total = self.available.amount - self.pending_debits + self.pending_credits
         return Amount(amount=total, currency=self.available.currency)
 
+    @property
+    def has_funds(self):
+        return self.net.amount >= 0
+
     # --------------
     # Properties END
     # --------------
@@ -91,10 +99,10 @@ class CurrentAccount(Account):
             o = self.pending.pop(uuid)
             self.available.update(o)
             self.save()
-            return True
+            return Response()
         except KeyError as e:
             logger.error('No pending operation found with key {}'.format(e))
-            return False
+            return Response(error=FAILURE_TRANSACTION_OPERATION_ERROR)
 
 
 class AccountTransaction(AbstractBaseModel):
@@ -110,7 +118,7 @@ class AccountTransaction(AbstractBaseModel):
     source_id = columns.UUID()
     signature = columns.Text()
     type = columns.Text(discriminator_column=True)
-    status = columns.TinyInt(default=TRANSACTION_CREATED[0], index=True)
+    status = columns.TinyInt(default=TRANSACTION_PENDING[0], index=True)
     # failure code
     failure_code = columns.SmallInt()
     # cancel reason
@@ -123,12 +131,11 @@ class AccountTransaction(AbstractBaseModel):
     # ---------------
     # Machine Methods
     # ---------------
-    def _init_machine(self):
+    def _init_machine(self, transitions=TRANSACTION_STATE_TRANSITIONS):
         """
         Method to hook a state machine to the instance
         """
         states = list(TRANSACTION_STATUS_STRING_CHOICES)
-        transitions = TRANSACTION_STATE_TRANSITIONS
         self.machine = Machine(model=self, states=states, transitions=transitions,
                                auto_transitions=False, send_event=True,
                                initial=TRANSACTION_STATUS_MAP[self.status],
@@ -141,6 +148,9 @@ class AccountTransaction(AbstractBaseModel):
         :return:
         """
         self.status = TRANSACTION_STATUS_STRING_MAP[event.state.name]
+        persist = event.kwargs.get('persist', False)
+        if persist:
+            self.save()
 
     def execute_operation(self, event, **kwargs):
         """
@@ -148,28 +158,26 @@ class AccountTransaction(AbstractBaseModel):
         :param event: EventData
         :return:
         """
-        account = CurrentAccount.objects(id=self.account_id).get()
-        result = account.execute_pending(self.id)
-        event.kwargs.update({'result': result})
+        transfer = event.kwargs.get('transfer')
+        if transfer is None:
+            raise TransferNotAvailable
 
-    def execute_transfer(self, event, **kwargs):
+        if transfer.is_sealed:
+            account = CurrentAccount.objects(id=self.account_id).get()
+            response = account.execute_pending(self.id)
+            event.kwargs.update({'operation_response': response})
+        else:
+            event.kwargs.update({'operation_response': Response(error=FAILURE_TRANSFER_IS_NOT_SEALED)})
+
+    def has_operation_succeed(self, event, **kwargs):
         """
 
         :param event: EventData
         :return:
         """
-        print 'execute_transfer', self.source_id
-
-    def has_valid_signature(self, event, **kwargs):
-        """
-
-        :param event: EventData
-        :return:
-        """
-        # TODO: validate signature method
-        signature = event.kwargs.get('signature')
-        if signature is not 'signature':
-            self.failure_code = FAILURE_INVALID_SIGNATURE[0]
+        response = event.kwargs.get('operation_response')
+        if not response.is_success:
+            self.failure_code = response.error_code
             return False
         return True
 
@@ -180,14 +188,6 @@ class AccountTransaction(AbstractBaseModel):
         :return:
         """
         return self.failure_code is not None
-
-    def has_operation_succeed(self, event, **kwargs):
-        """
-
-        :param event: EventData
-        :return:
-        """
-        return event.kwargs.get('result', False)
 
 
 class DebitAccountTransaction(AccountTransaction):

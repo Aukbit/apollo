@@ -7,16 +7,21 @@ from cassandra.cqlengine.models import Model
 from transitions import Machine
 
 from .custom_types import Amount
-from .general import (TRANSFER_PENDING,
+from .general import (TRANSFER_CREATED,
                       TRANSFER_STATUS_MAP,
                       TRANSFER_STATUS_STRING_MAP,
                       TRANSFER_STATUS_STRING_CHOICES,
                       TRANSFER_STATE_TRANSITIONS)
-# from ..account.models import (CurrentAccount,
-#                               DebitAccountTransaction,
-#                               CreditAccountTransaction)
+from .exceptions import (AccountTransactionNotAvailable,
+                         DestinationTransactionNotAvailable)
+from ..account.models import (CurrentAccount)
+from ...common.responses import Response
 from ...common.abstract.models import AbstractBaseModel
-from ...common.failure_codes import FAILURE_INSUFFICIENT_FUNDS
+from ...common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
+                                     FAILURE_INVALID_ACCOUNT_SIGNATURE,
+                                     FAILURE_INVALID_DESTINATION_SIGNATURE,
+                                     FAILURE_INVALID_ACCOUNT_OPERATION_ERROR,
+                                     FAILURE_INVALID_DESTINATION_OPERATION_ERROR)
 
 
 class Transfer(AbstractBaseModel):
@@ -26,10 +31,15 @@ class Transfer(AbstractBaseModel):
     __table_name__ = 'transfer'
 
     id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    account_id = columns.UUID(required=True)
     description = columns.Text()
+    value = columns.UserDefinedType(Amount, required=True)
+    account_id = columns.UUID(required=True)
+    destination_id = columns.UUID(required=True)
+    #
+    signatures = columns.Map(columns.Text, columns.Text)
+    #
     type = columns.Text(discriminator_column=True)
-    status = columns.TinyInt(default=TRANSFER_PENDING[0])
+    status = columns.TinyInt(default=TRANSFER_CREATED[0])
     # reverse
     reversed = columns.Boolean(default=False)
     value_reversed = columns.UserDefinedType(Amount)
@@ -61,6 +71,9 @@ class Transfer(AbstractBaseModel):
         :return:
         """
         self.status = TRANSFER_STATUS_STRING_MAP[event.state.name]
+        persist = event.kwargs.get('persist', False)
+        if persist:
+            self.save()
 
     def create_debit_account_transaction(self, event, **kwargs):
         """
@@ -92,6 +105,90 @@ class Transfer(AbstractBaseModel):
         #                                       source_id=self.id)
         # event.kwargs.update({'credit_account_transaction': cat})
 
+    def set_account_signature(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        act_signature = event.kwargs.get('act_signature')
+        # TODO is signature valid
+        if act_signature:
+            self.signatures['act_signature'] = act_signature
+
+    def set_destination_signature(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        dst_signature = event.kwargs.get('dst_signature')
+        # TODO is signature valid
+        if dst_signature:
+            self.signatures['dst_signature'] = dst_signature
+
+    def has_valid_account_signature(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        signature = self.signatures.get('act_signature')
+        # TODO is signature valid
+        if signature is not 'signature':
+            self.failure_code = FAILURE_INVALID_ACCOUNT_SIGNATURE[0]
+            return False
+        return True
+
+    def has_valid_destination_signature(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        signature = self.signatures.get('dst_signature')
+        # TODO is signature valid
+        if signature is not 'signature':
+            self.failure_code = FAILURE_INVALID_DESTINATION_SIGNATURE[0]
+            return False
+        return True
+
+    def has_transaction_account_succeed(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        act_txn = event.kwargs.get('act_txn')
+        if act_txn is None:
+            raise AccountTransactionNotAvailable
+        if act_txn.is_succeed():
+            return True
+        if act_txn.is_failed():
+            self.failure_code = FAILURE_INVALID_ACCOUNT_OPERATION_ERROR[0]
+        return False
+
+    def has_transaction_destination_succeed(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        dst_txn = event.kwargs.get('dst_txn')
+        if dst_txn is None:
+            raise DestinationTransactionNotAvailable
+        if dst_txn.is_succeed():
+            return True
+        if dst_txn.is_failed():
+            self.failure_code = FAILURE_INVALID_ACCOUNT_OPERATION_ERROR[0]
+        return False
+
     def has_funds(self, event, **kwargs):
         """
 
@@ -122,12 +219,31 @@ class P2pTransfer(Transfer):
     """
     __discriminator_value__ = 'p2p'
 
-    value = columns.UserDefinedType(Amount, required=True)
-    destination_id = columns.UUID(required=True)
-
     def __init__(self, **values):
         super(P2pTransfer, self).__init__(**values)
         self.type = self.__discriminator_value__
+
+    def _execute_txn(self, txn=None, persist=False):
+        if txn is None:
+            raise AccountTransactionNotAvailable
+        txn.go_execute(transfer=self, persist=persist)
+        return txn
+
+    def _is_txn_valid(self, txn=None):
+        if txn is None:
+            raise AccountTransactionNotAvailable
+        return self.id == txn.source_id
+
+    def _has_txn_funds(self, txn=None):
+        if txn is None:
+            raise AccountTransactionNotAvailable
+
+        if self._is_txn_valid(txn):
+            act = CurrentAccount.objects(id=txn.account_id).get()
+            if act.has_funds:
+                return True
+            self.failure_code = FAILURE_INSUFFICIENT_FUNDS[0]
+            return False
 
     def execute_operation(self, event, **kwargs):
         """
@@ -136,14 +252,13 @@ class P2pTransfer(Transfer):
         :param kwargs:
         :return:
         """
-        pass
-        # #
-        # dat = event.kwargs.get('debit_account_transaction')
-        # if isinstance(dat, DebitAccountTransaction):
-        #     if dat.go_available():
-        #         dat.save()
-        # #
-        # cat = event.kwargs.get('credit_account_transaction')
-        # if isinstance(cat, CreditAccountTransaction):
-        #     if cat.go_available():
-        #         cat.save()
+        persist = event.kwargs.get('persist', False)
+        # confirm if account has funds
+        act_txn = event.kwargs.get('act_txn')
+        if self._has_txn_funds(act_txn):
+            act_txn = self._execute_txn(act_txn, persist)
+            event.kwargs.update({'act_txn': act_txn})
+            #
+            dst_txn = event.kwargs.get('dst_txn')
+            dst_txn = self._execute_txn(dst_txn, persist)
+            event.kwargs.update({'dst_txn': dst_txn})

@@ -6,7 +6,7 @@ from .models import (CurrentAccount,
                      DebitAccountTransaction,
                      CreditAccountTransaction)
 from .custom_types import Operation
-from .general import TRANSACTION_CREATED
+from .general import TRANSACTION_PENDING
 from ...common.subscriber import Subscriber
 
 
@@ -43,7 +43,7 @@ class AccountTransactionSubscriber(Subscriber):
         super(AccountTransactionSubscriber, self).on_event(sender, **kwargs)
         event = kwargs.get('instance', None)
         account_transaction = kwargs.get('parent', None)
-        if event is not None and account_transaction is not None and account_transaction.status == TRANSACTION_CREATED[0]:
+        if event is not None and account_transaction is not None and account_transaction.status == TRANSACTION_PENDING[0]:
             self.add_pending_transaction(event, account_transaction)
 
 account_transaction_subscriber = AccountTransactionSubscriber(senders=['event.account_transaction.created'])
@@ -58,7 +58,7 @@ class TransferSubscriber(Subscriber):
                                              description=description,
                                              value=transfer.value,
                                              source_id=transfer.id)
-        print dat
+        # print dat
 
     @staticmethod
     def create_credit_account_transaction(event, transfer):
@@ -67,7 +67,7 @@ class TransferSubscriber(Subscriber):
                                               description=description,
                                               value=transfer.value,
                                               source_id=transfer.id)
-        print cat
+        # print cat
 
     def on_event(self, sender, **kwargs):
         super(TransferSubscriber, self).on_event(sender, **kwargs)
