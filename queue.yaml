@@ -1,0 +1,21 @@
+queue:
+
+- name: default
+  rate: 1/s
+
+# custom queues
+- name: transfers
+  rate: 1/s
+  retry_parameters:
+    min_backoff_seconds: 60
+    max_backoff_seconds: 3600
+    task_age_limit: 3d
+
+# Notes:
+# https://cloud.google.com/appengine/docs/python/config/queueref
+#
+# min_backoff_seconds is the minimum countdown, the countdown of the first retry.
+# max_backoff_seconds is the maximum; retries will increase the countdown up to this amount.
+# These values are an amount of time, as a number of seconds.
+# max_doublings setting lets you set the number of times the countdown doubles.
+# After that many retries, the countdown stays constant for each subsequent retry.

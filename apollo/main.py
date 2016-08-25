@@ -2,6 +2,7 @@ import os
 import logging
 
 from flask import Flask, jsonify, g
+from werkzeug.utils import find_modules, import_string
 from apollo.common.database import init_db
 from apollo.components.user.models import User
 from apollo.components.log.models import log_http_request, log_http_response
@@ -23,6 +24,14 @@ def setup_logging(debug=False):
     # app.logger.addHandler(stream_handler)
 
 
+def register_blueprints(app):
+    for name in find_modules('apollo.components', include_packages=True):
+        mod = import_string(name)
+        if hasattr(mod, 'blueprint'):
+            url_prefix = getattr(mod, 'url_prefix', '')
+            app.register_blueprint(mod.blueprint, url_prefix=url_prefix)
+
+
 def create_app():
     """
     Factory to set up the application
@@ -41,6 +50,8 @@ def create_app():
         app.config['DEBUG'] = False
     # register logging
     setup_logging(app.config.get('DEBUG'))
+    # register blueprints
+    register_blueprints(app)
     return app
 
 app = create_app()

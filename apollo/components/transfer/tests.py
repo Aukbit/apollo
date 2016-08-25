@@ -270,5 +270,37 @@ class EventTestCase(TestAppEngineMixin):
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer_failure_sealed_timeout(self, *args):
         # assert
-        self.assertEqual(P2pTransfer.objects.count(), 1)
+        self.assertEqual(P2pTransfer.objects.count(), 0)
+        self.assertEqual(AccountTransaction.objects.count(), 0)
+        # assert there is no tasks
+        tasks = self.taskqueue_stub.get_filtered_tasks()
+        self.assertEqual(len(tasks), 0)
+        # get accounts
+        account = CurrentAccount.objects.filter(owner_id=self.luke.id).get()
+        destination = CurrentAccount.objects.filter(owner_id=self.leia.id).get()
+        # assert accounts are empty
+        self.assertEqual(account.available.amount, 0)
+        self.assertEqual(destination.available.amount, 0)
+        # add initial amount to account
+        account.available.amount = 10000
+        account.save()
+        self.assertEqual(account.available.amount, 10000)
+        #
+        # create transfer
+        #
+        t = P2pTransfer.create(account_id=account.id,
+                               destination_id=destination.id,
+                               description='last dinner bill',
+                               value=Amount(amount=500, currency=DEFAULT_CURRENCY[0]))
+        self.assertIsNotNone(t.id)
+        # assert transfer state machine
+        self.assertEqual(len(t.machine.events), 3)
+        self.assertEqual(len(t.machine.states), 5)
+        self.assertEqual(t.state, TRANSFER_CREATED[1])
+        #
+        # assert task is created
+        url_params = {'id': t.id, 'action': 'go_finish'}
+        url = url_for('transfers.timeout', **url_params)
+        tasks = self.taskqueue_stub.get_filtered_tasks(url=url, queue_names=['transfers'])
+        self.assertEqual(len(tasks), 1)
 

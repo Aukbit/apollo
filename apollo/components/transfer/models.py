@@ -26,9 +26,10 @@ from ...common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
                                      FAILURE_INVALID_DESTINATION_SIGNATURE,
                                      FAILURE_INVALID_ACCOUNT_OPERATION_ERROR,
                                      FAILURE_INVALID_DESTINATION_OPERATION_ERROR)
+from ...common.mixins.task_queue import TaskQueueMixin
 
 
-class Transfer(AbstractBaseModel):
+class Transfer(AbstractBaseModel, TaskQueueMixin):
     """
     Transfer
     """
