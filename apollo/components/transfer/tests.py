@@ -299,8 +299,8 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(t.state, TRANSFER_CREATED[1])
         #
         # assert task is created
-        url_params = {'id': t.id, 'action': 'go_finish'}
-        url = url_for('transfers.timeout', **url_params)
+        url_params = {'id': t.id, 'action': 'cancel'}
+        url = url_for('transfers.transfer_actions', **url_params)
         tasks = self.taskqueue_stub.get_filtered_tasks(url=url, queue_names=['transfers'])
         self.assertEqual(len(tasks), 1)
 

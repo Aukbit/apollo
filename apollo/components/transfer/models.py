@@ -27,9 +27,10 @@ from ...common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
                                      FAILURE_INVALID_ACCOUNT_OPERATION_ERROR,
                                      FAILURE_INVALID_DESTINATION_OPERATION_ERROR)
 from ...common.mixins.task_queue import TaskQueueMixin
+from ...common.mixins.state_machine import MachineMixin
 
 
-class Transfer(AbstractBaseModel, TaskQueueMixin):
+class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
     """
     Transfer
     """

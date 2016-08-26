@@ -4,16 +4,21 @@ logger = logging.getLogger(__name__)
 from flask import (jsonify, request, url_for, Response)
 from flask.views import MethodView
 
+from flask import Blueprint
+blueprint_tasks = Blueprint('transfers', __name__, url_prefix='/tasks')
+
+from .shemas import ActionSchema
+
 
 # API using Method View directly from Flask
 # http://flask.pocoo.org/docs/0.10/views/
 
 
-class TransfersTimeout(MethodView):
+class TransferActions(MethodView):
     """
-    TransfersTimeout
+    TransferActions
     """
-    # schema = OrderSchema()
+    schema = ActionSchema()
 
     def post(self, *args, **kwargs):
         """
@@ -36,7 +41,7 @@ class TransfersTimeout(MethodView):
 
         return jsonify({'data': 'ok'}), 200
 
-blueprint.add_url_rule('/transfers/timeout',
-                            view_func=TransfersTimeout.as_view('transfers_timeout'),
-                            methods=['POST'],
-                            endpoint='transfers_timeout')
+blueprint_tasks.add_url_rule('/transfers/<string:id>/actions/<string:action>',
+                             view_func=TransferActions.as_view('transfer_actions'),
+                             methods=['POST'],
+                             endpoint='transfer_actions')
