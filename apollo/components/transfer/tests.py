@@ -300,7 +300,12 @@ class EventTestCase(TestAppEngineMixin):
         #
         # assert task is created
         url_params = {'id': t.id, 'action': 'cancel'}
-        url = url_for('transfers.transfer_actions', **url_params)
-        tasks = self.taskqueue_stub.get_filtered_tasks(url=url, queue_names=['transfers'])
+        url = url_for('tasks.transfer_actions', **url_params)
+        print url
+        tasks = self.taskqueue_stub.get_filtered_tasks(url=url, queue_names=['transfer'])
         self.assertEqual(len(tasks), 1)
+        # run task
+        self.run_tasks(url=url,
+                       queue_name='transfer',
+                       method='POST', response_status_code=200)
 

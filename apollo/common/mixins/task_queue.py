@@ -15,7 +15,7 @@ class TaskQueueMixin(object):
     """
 
     @staticmethod
-    def add_task(queue_name='default', name=None, **kwargs):
+    def add_task(queue_name='default', **kwargs):
         """
         Enqueue a task as part of a Datastore transaction
         https://cloud.google.com/appengine/docs/python/ndb/transactions
@@ -25,11 +25,8 @@ class TaskQueueMixin(object):
         :param params:
         :return:
         """
-        if name is None:
-            raise TaskNameNotAvailable
-
         try:
-            task = taskqueue.add(queue_name=queue_name, name=name, **kwargs)
+            task = taskqueue.add(queue_name=queue_name, **kwargs)
             return task
         except (taskqueue.TombstonedTaskError,
                 taskqueue.DuplicateTaskNameError,
@@ -60,4 +57,4 @@ class TaskQueueMixin(object):
                 taskqueue.BadTaskStateError,
                 taskqueue.TooManyTasksError,
                 taskqueue.UnknownQueueError) as e:
-            logger.error('Task %s in queue=%s not removed. error: %s' % (task_name, queue_name, e))
+            logger.error('Task %s in queue=%s not removed. error: %s' % (name, queue_name, e))

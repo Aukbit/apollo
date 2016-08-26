@@ -70,8 +70,9 @@ class TestAppEngineMixin(unittest.TestCase):
         self.testbed.init_modules_stub()
         # https://cloud.google.com/appengine/docs/python/tools/localunittesting?hl=en#Python_Writing_task_queue_tests
         # https://cloud.google.com/appengine/docs/python/tools/localunittesting#Python_Writing_task_queue_tests
-        root_path = os.path.join(os.path.dirname(__file__), '../../../')
+        root_path = os.path.join(os.path.dirname(__file__), '../../')
         # print root_path
+        # Note: root_path must be the path of where queue.yaml remains
         self.testbed.init_taskqueue_stub(root_path=root_path)
         self.taskqueue_stub = self.testbed.get_stub(testbed.TASKQUEUE_SERVICE_NAME)
 

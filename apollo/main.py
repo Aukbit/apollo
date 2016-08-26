@@ -28,8 +28,7 @@ def register_blueprints(app):
     for name in find_modules('apollo.components', include_packages=True):
         mod = import_string(name)
         if hasattr(mod, 'blueprint_tasks'):
-            url_prefix = getattr(mod, 'url_prefix', '/')
-            app.register_blueprint(mod.blueprint_tasks, url_prefix=url_prefix)
+            app.register_blueprint(mod.blueprint_tasks)
 
 
 def create_app():

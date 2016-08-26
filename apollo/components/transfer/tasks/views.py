@@ -5,7 +5,7 @@ from flask import (jsonify, request, url_for, Response)
 from flask.views import MethodView
 
 from flask import Blueprint
-blueprint_tasks = Blueprint('transfers', __name__, url_prefix='/tasks')
+blueprint_tasks = Blueprint('tasks', __name__, url_prefix='/tasks/v1')
 
 from .shemas import ActionSchema
 

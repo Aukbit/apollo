@@ -4,7 +4,7 @@ queue:
   rate: 1/s
 
 # custom queues
-- name: transfers
+- name: transfer
   rate: 1/s
   retry_parameters:
     min_backoff_seconds: 60

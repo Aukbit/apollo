@@ -1,11 +1,14 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import simplejson as json
+import urllib
+from google.appengine.api import modules
+from google.appengine.api import taskqueue
 from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 from transitions import Machine
-
+from flask import url_for
 from .custom_types import Amount
 from .general import (TRANSFER_CREATED,
                       TRANSFER_STATUS_MAP,
@@ -16,6 +19,7 @@ from .exceptions import (AccountTransactionNotAvailable,
                          DestinationTransactionNotAvailable,
                          UserNotAvailable,
                          ReasonNotAvailable)
+from .custom_types import Task
 from ..account.models import (CurrentAccount,
                               DebitAccountTransaction,
                               CreditAccountTransaction)
@@ -41,7 +45,7 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
     value = columns.UserDefinedType(Amount, required=True)
     account_id = columns.UUID(required=True)
     destination_id = columns.UUID(required=True)
-    #
+    # signatures
     signatures = columns.Map(columns.Text, columns.Text)
     #
     type = columns.Text(discriminator_column=True)
@@ -54,6 +58,8 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
     # cancel reason
     cancel_user_id = columns.UUID()
     cancel_reason = columns.Text()
+    # tasks
+    tasks = columns.Map(columns.Text, columns.Text)
 
     def __init__(self, *args, **kwargs):
         super(Transfer, self).__init__(*args, **kwargs)
@@ -234,6 +240,24 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
         :return:
         """
         return self.cancel_reason is not None and self.cancel_user_id is not None
+
+    # ---------------
+    # Task Methods
+    # ---------------
+    def create_task_to_cancel_transfer(self):
+        kwargs = dict()
+        action = 'cancel'
+        url_params = {'id': self.id, 'action': action}
+        url = url_for('tasks.transfer_actions', **url_params)
+        kwargs['queue_name'] = self.__table_name__
+        kwargs['method'] = 'POST'
+        kwargs['url'] = url
+        kwargs['eta'] = datetime.utcnow() + timedelta(hours=24)
+        kwargs['payload'] = urllib.urlencode({'action': action})
+        # context['target'] = modules.get_current_module_name()
+        task = self.add_task(**kwargs)
+        if isinstance(task, taskqueue.Task):
+            self.tasks['cancel'] = task.name
 
 
 class P2pTransfer(Transfer):

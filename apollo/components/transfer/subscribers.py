@@ -1,7 +1,10 @@
 import logging
 logger = logging.getLogger(__name__)
 import simplejson as json
-
+from datetime import datetime, timedelta
+import urllib
+from google.appengine.api import modules
+from flask import url_for
 from ...common.subscriber import Subscriber
 
 
@@ -12,7 +15,6 @@ class TransferSubscriber(Subscriber):
         event = kwargs.get('instance', None)
         transfer = kwargs.get('parent', None)
         if event is not None and transfer is not None:
-            print 'event.transfer.created'
-
+            transfer.create_task_to_cancel_transfer()
 
 transfer_subscriber = TransferSubscriber(senders=['event.transfer.created'])
