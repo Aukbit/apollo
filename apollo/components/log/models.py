@@ -30,21 +30,17 @@ class LogHttpRequest(Log):
 
     @classmethod
     def create(cls, **kwargs):
-        request = kwargs.get('request')
+        from flask import request
         if request:
             kwargs['request'] = Request.validate_request(request)
-        response = kwargs.get('response')
-        if response:
-            kwargs['response'] = Response.validate_response(response)
         return super(LogHttpRequest, cls).create(**kwargs)
 
 
-def log_http_request(request=None):
-    if request:
-        from flask import g
-        if request.method in CRUD_METHODS:
-            log = LogHttpRequest.create(request=request)
-            g._log = log
+def log_http_request():
+    from flask import g, request
+    if request.method in CRUD_METHODS:
+        log = LogHttpRequest.create()
+        g._log = log
 
 
 def log_http_response(response=None):

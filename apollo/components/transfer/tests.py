@@ -12,6 +12,7 @@ from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
 from apollo.components.event.general import ACTIONS_MAP, CREATED, UPDATED
+from apollo.components.log.models import LogHttpRequest
 from apollo.components.account.models import (CurrentAccount,
                                               AccountTransaction,
                                               DebitAccountTransaction,
@@ -36,11 +37,17 @@ class EventTestCase(TestAppEngineMixin):
 
     def setUp(self):
         super(EventTestCase, self).setUp()
-        init_db(models=[Transfer, DebitAccountTransaction, CreditAccountTransaction, CurrentAccount, EventApi, EventBot, User])
+        init_db(models=[Transfer,
+                        DebitAccountTransaction,
+                        CreditAccountTransaction,
+                        CurrentAccount,
+                        EventApi, EventBot,
+                        User, LogHttpRequest])
         self.db = get_db()
 
     def tearDown(self):
         super(EventTestCase, self).tearDown()
+        drop_table(LogHttpRequest)
         drop_table(EventApi)
         drop_table(EventBot)
         drop_table(User)
@@ -301,7 +308,6 @@ class EventTestCase(TestAppEngineMixin):
         # assert task is created
         url_params = {'id': t.id, 'action': 'cancel'}
         url = url_for('tasks.transfer_actions', **url_params)
-        print url
         tasks = self.taskqueue_stub.get_filtered_tasks(url=url, queue_names=['transfer'])
         self.assertEqual(len(tasks), 1)
         # run task

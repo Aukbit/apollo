@@ -63,8 +63,7 @@ def index():
 
 @app.before_request
 def log_request():
-    from flask import request
-    log_http_request(request)
+    log_http_request()
 
 
 @app.after_request

@@ -8,6 +8,8 @@ from flask import Blueprint
 blueprint_tasks = Blueprint('tasks', __name__, url_prefix='/tasks/v1')
 
 from .shemas import ActionSchema
+from ..models import Transfer
+from ....common.decorators import get_object
 
 
 # API using Method View directly from Flask
@@ -20,6 +22,7 @@ class TransferActions(MethodView):
     """
     schema = ActionSchema()
 
+    @get_object(model=Transfer)
     def post(self, *args, **kwargs):
         """
         Process task
@@ -30,16 +33,12 @@ class TransferActions(MethodView):
         or 'application/octet-stream' which flask does not recognize
         :return:
         """
+        if self.object and request.content_type == 'application/x-www-form-urlencoded':
+            self.schema.context['instance'] = self.object
+            data, errors = self.schema.load(request.form)
+            print data, errors
 
-        if request.content_type == 'application/x-www-form-urlencoded':
-            print request.form
-            # data, errors = self.schema_action.load(request.form)
-        elif request.content_type == 'application/octet-stream':
-            import urlparse
-            data_parsed = dict(urlparse.parse_qsl(request.data))
-            print data_parsed
-
-        return jsonify({'data': 'ok'}), 200
+        return jsonify({'data': data}), 200
 
 blueprint_tasks.add_url_rule('/transfers/<string:id>/actions/<string:action>',
                              view_func=TransferActions.as_view('transfer_actions'),

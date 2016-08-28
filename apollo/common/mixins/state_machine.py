@@ -9,15 +9,20 @@ class MachineMixin(object):
     """
     MachineMixin
     """
+    def _trigger(self, action):
+        return 'go_{}'.format(action)
+
     def is_action_valid(self, action):
+        trigger = self._trigger(action)
         return hasattr(self, 'machine') and \
                isinstance(self.machine, Machine) and \
-               action in self.machine.events
+               trigger in self.machine.events
 
     def run_action(self, action, **kwargs):
         if self.is_action_valid(action):
             try:
-                run = getattr(self, action)
+                trigger = self._trigger(action)
+                run = getattr(self, trigger)
                 return run(**kwargs)
             except MachineError as e:
                 logger.error('%s error: %s' % (self._class_name(), e))
