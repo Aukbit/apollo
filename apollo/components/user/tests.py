@@ -4,9 +4,7 @@ import base64
 
 from mock import MagicMock, Mock, patch
 from flask import url_for
-from cassandra.cqlengine.management import drop_table
 
-from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
 from apollo.components.user.models import User, Profile, Address
 from apollo.components.event.subscribers import EventSubscriber
@@ -16,12 +14,9 @@ class UserTestCase(TestAppEngineMixin):
 
     def setUp(self):
         super(UserTestCase, self).setUp()
-        init_db(models=[User], types=[Profile, Address])
-        self.db = get_db()
 
     def tearDown(self):
         super(UserTestCase, self).tearDown()
-        drop_table(User)
 
     @patch.object(EventSubscriber, 'on_save')
     def test_create_user(self, *args):

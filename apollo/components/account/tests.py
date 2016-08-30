@@ -23,10 +23,6 @@ class AccountTestCase(TestAppEngineMixin):
 
     def tearDown(self):
         super(AccountTestCase, self).tearDown()
-        drop_table(EventApi)
-        drop_table(EventBot)
-        drop_table(User)
-        drop_table(CurrentAccount)
 
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     def test_create_account(self):
