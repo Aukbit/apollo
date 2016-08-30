@@ -10,6 +10,7 @@
 
 4. Run Cassandra on terminal
   ```
+  cd Cassandra
   ./apache-cassandra-3.7/bin/cassandra -f
   ```
 

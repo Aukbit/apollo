@@ -7,9 +7,9 @@
 # http://babel.pocoo.org/docs/api/numbers/#babel.numbers.format_currency
 # ----------------
 
-GBP = 1, 'GBP', '£', 'British Pound'
-EUR = 2, 'EUR', '€', 'Euro'
-USD = 3, 'USD', '$', 'US Dollar'
+GBP = 'gbp', '£', 'British Pound'
+EUR = 'eur', '€', 'Euro'
+USD = 'usd', '$', 'US Dollar'
 
 CURRENCIES_STRING_MAP = {
     GBP[1]: GBP[0],
@@ -20,12 +20,6 @@ CURRENCIES_STRING_MAP = {
 CURRENCIES_CHOICES = frozenset(CURRENCIES_STRING_MAP.values())
 CURRENCIES_STRING_CHOICES = frozenset(CURRENCIES_STRING_MAP.keys())
 CURRENCIES_MAP = dict(zip(CURRENCIES_STRING_MAP.values(), CURRENCIES_STRING_MAP.keys()))
-
-CURRENCIES_SYMBOL_MAP = {
-    GBP[2]: GBP[0],
-    EUR[2]: EUR[0],
-    USD[2]: USD[0]
-}
 
 # Defaults
 DEFAULT_CURRENCY = GBP

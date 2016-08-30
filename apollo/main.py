@@ -2,6 +2,7 @@ import os
 import logging
 
 from flask import Flask, jsonify, g
+from werkzeug.utils import find_modules, import_string
 from apollo.common.database import init_db
 from apollo.components.user.models import User
 from apollo.components.log.models import log_http_request, log_http_response
@@ -13,7 +14,7 @@ def setup_logging(debug=False):
     # stream_handler.setLevel(logging.WARNING)
     verbose = '%(levelname)s %(asctime)s %(name)s %(funcName)s:%(lineno)s] %(message)s'
     stream_handler.setFormatter(logging.Formatter(verbose))
-    logger = logging.getLogger("pluto")
+    logger = logging.getLogger("apollo")
     logger.addHandler(stream_handler)
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -21,6 +22,13 @@ def setup_logging(debug=False):
     #  TODO Error Mails
     # http://flask.pocoo.org/docs/0.10/errorhandling/
     # app.logger.addHandler(stream_handler)
+
+
+def register_blueprints(app):
+    for name in find_modules('apollo.components', include_packages=True):
+        mod = import_string(name)
+        if hasattr(mod, 'blueprint_tasks'):
+            app.register_blueprint(mod.blueprint_tasks)
 
 
 def create_app():
@@ -41,6 +49,8 @@ def create_app():
         app.config['DEBUG'] = False
     # register logging
     setup_logging(app.config.get('DEBUG'))
+    # register blueprints
+    register_blueprints(app)
     return app
 
 app = create_app()
@@ -53,8 +63,7 @@ def index():
 
 @app.before_request
 def log_request():
-    from flask import request
-    log_http_request(request)
+    log_http_request()
 
 
 @app.after_request
