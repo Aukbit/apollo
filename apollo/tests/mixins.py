@@ -4,13 +4,26 @@ import sys
 import os
 import unittest2 as unittest
 
-from apollo.tests.context import main
 from cassandra.cqlengine import connection
-from cassandra.cqlengine.management import drop_keyspace, create_keyspace_simple
+from cassandra.cqlengine.management import drop_keyspace, create_keyspace_simple, drop_table
 from webtest import TestApp
 from google.appengine.ext import testbed
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext import ndb
+#
+from apollo.tests.context import main
+from apollo.common.database import init_db, get_db
+from apollo.components.user.models import User
+from apollo.components.log.models import LogHttpRequest
+from apollo.components.event.models import (Event, EventApi, EventBot)
+from apollo.components.account.models import (CurrentAccount,
+                                              AccountTransaction,
+                                              DebitAccountTransaction,
+                                              CreditAccountTransaction)
+from apollo.components.transfer.models import (Transfer,
+                                               P2pTransfer)
+from apollo.components.payment.models import (PaymentProcessor,
+                                              StripePaymentProcessor)
 
 
 class TestAppEngineMixin(unittest.TestCase):
@@ -83,8 +96,28 @@ class TestAppEngineMixin(unittest.TestCase):
         # Alternatively, you could disable caching by
         # using ndb.get_context().set_cache_policy(False)
         ndb.get_context().clear_cache()
+        #
+        init_db(models=[Transfer,
+                DebitAccountTransaction,
+                CreditAccountTransaction,
+                CurrentAccount,
+                EventApi,
+                EventBot,
+                User,
+                LogHttpRequest,
+                StripePaymentProcessor])
+        self.db = get_db()
 
     def tearDown(self):
+        drop_table(LogHttpRequest)
+        drop_table(EventApi)
+        drop_table(EventBot)
+        drop_table(User)
+        drop_table(CurrentAccount)
+        drop_table(DebitAccountTransaction)
+        drop_table(CreditAccountTransaction)
+        drop_table(Transfer)
+        drop_table(StripePaymentProcessor)
         self.testbed.deactivate()
 
     def run_tasks(self, url=None, queue_name=None, method='POST', response_status_code=200, **kwargs):

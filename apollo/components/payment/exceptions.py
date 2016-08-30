@@ -1,0 +1,4 @@
+
+
+class EmailNotAvailable(Exception):
+    pass

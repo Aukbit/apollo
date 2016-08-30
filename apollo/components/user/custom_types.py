@@ -16,5 +16,5 @@ class Address(UserType, JsonMixin):
     line_1 = columns.Text()
     line_2 = columns.Text()
     town_city = columns.Text()
-    county = columns.Text()
+    country = columns.Text()
     zipcode = columns.Text()

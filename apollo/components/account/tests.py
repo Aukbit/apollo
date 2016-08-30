@@ -12,6 +12,7 @@ from apollo.components.account.models import CurrentAccount
 from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
+from apollo.components.payment.models import StripePaymentProcessor
 from apollo.common.currencies import DEFAULT_CURRENCY
 
 
@@ -19,8 +20,6 @@ class AccountTestCase(TestAppEngineMixin):
 
     def setUp(self):
         super(AccountTestCase, self).setUp()
-        init_db(models=[CurrentAccount, EventApi, EventBot, User])
-        self.db = get_db()
 
     def tearDown(self):
         super(AccountTestCase, self).tearDown()

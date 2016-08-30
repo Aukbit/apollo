@@ -35,7 +35,7 @@ class UserTestCase(TestAppEngineMixin):
                     line_1='line_1',
                     line_2='line_2',
                     town_city='town_city',
-                    county='county',
+                    country='country',
                     zipcode='123',
                     )
         # create
@@ -59,7 +59,7 @@ class UserTestCase(TestAppEngineMixin):
         self.assertEqual(u.address.line_1, 'line_1')
         self.assertEqual(u.address.line_2, 'line_2')
         self.assertEqual(u.address.town_city, 'town_city')
-        self.assertEqual(u.address.county, 'county')
+        self.assertEqual(u.address.country, 'country')
         self.assertEqual(u.address.zipcode, '123')
         # AbstractUser
         self.assertEqual(u.username, 'luke')
