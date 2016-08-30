@@ -22,7 +22,10 @@ from apollo.components.account.general import (TRANSACTION_PENDING,
                                                TRANSACTION_CANCELLED,
                                                TRANSACTION_FAILED)
 from apollo.components.transfer.models import Transfer, P2pTransfer
-from apollo.components.transfer.custom_types import Amount
+from apollo.components.transfer.custom_types import (Amount,
+                                                     Cancellation,
+                                                     CancellationByTask,
+                                                     CancellationByUser)
 from apollo.components.transfer.general import (TRANSFER_CREATED,
                                                 TRANSFER_SEALED,
                                                 TRANSFER_SUCCEED,
@@ -41,8 +44,10 @@ class EventTestCase(TestAppEngineMixin):
                         DebitAccountTransaction,
                         CreditAccountTransaction,
                         CurrentAccount,
-                        EventApi, EventBot,
-                        User, LogHttpRequest])
+                        EventApi,
+                        EventBot,
+                        User,
+                        LogHttpRequest])
         self.db = get_db()
 
     def tearDown(self):
@@ -313,5 +318,11 @@ class EventTestCase(TestAppEngineMixin):
         # run task
         self.run_tasks(url=url,
                        queue_name='transfer',
-                       method='POST', response_status_code=200)
+                       method='PUT', response_status_code=200)
+        # get transfer
+        t = P2pTransfer.objects(id=t.id).get()
+        self.assertEqual(t.status, TRANSFER_CANCELLED[0])
+        self.assertEqual(t.cancellation_data.reason, 'expired')
+        self.assertEqual(t.cancellation_data.task.name, tasks[0].name)
+        self.assertEqual(len(t.tasks), 0)
 

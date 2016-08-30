@@ -14,3 +14,7 @@ class UserNotAvailable(Exception):
 
 class ReasonNotAvailable(Exception):
     pass
+
+
+class MetadataNotAvailable(Exception):
+    pass

@@ -41,7 +41,7 @@ class TestAppEngineMixin(unittest.TestCase):
         code that is executed after all tests in one test run
         :return:
         """
-        drop_keyspace('tests')
+        # drop_keyspace('tests')
         cls.ctx.pop()
 
     def setUp(self):

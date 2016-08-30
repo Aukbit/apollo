@@ -15,6 +15,6 @@ class TransferSubscriber(Subscriber):
         event = kwargs.get('instance', None)
         transfer = kwargs.get('parent', None)
         if event is not None and transfer is not None:
-            transfer.create_task_to_cancel_transfer()
+            transfer.create_expired_task()
 
 transfer_subscriber = TransferSubscriber(senders=['event.transfer.created'])

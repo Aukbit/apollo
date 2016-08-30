@@ -9,7 +9,10 @@ from cassandra.cqlengine import columns, ValidationError
 from cassandra.cqlengine.models import Model
 from transitions import Machine
 from flask import url_for
-from .custom_types import Amount
+from .custom_types import (Amount,
+                           Cancellation,
+                           CancellationByTask,
+                           CancellationByUser)
 from .general import (TRANSFER_CREATED,
                       TRANSFER_STATUS_MAP,
                       TRANSFER_STATUS_STRING_MAP,
@@ -18,8 +21,8 @@ from .general import (TRANSFER_CREATED,
 from .exceptions import (AccountTransactionNotAvailable,
                          DestinationTransactionNotAvailable,
                          UserNotAvailable,
-                         ReasonNotAvailable)
-from .custom_types import Task
+                         ReasonNotAvailable,
+                         MetadataNotAvailable)
 from ..account.models import (CurrentAccount,
                               DebitAccountTransaction,
                               CreditAccountTransaction)
@@ -55,9 +58,8 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
     value_reversed = columns.UserDefinedType(Amount)
     # failure
     failure_code = columns.SmallInt()
-    # cancel reason
-    cancel_user_id = columns.UUID()
-    cancel_reason = columns.Text()
+    # cancellation data
+    cancellation_data = columns.UserDefinedType(Cancellation)
     # tasks
     tasks = columns.Map(columns.Text, columns.Text)
 
@@ -206,20 +208,7 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
         """
         return self.failure_code is not None
 
-    def set_user(self, event, **kwargs):
-        """
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        user = event.kwargs.get('user')
-        if user is None:
-            raise UserNotAvailable
-
-        self.cancel_user_id = user.id
-
-    def set_reason(self, event, **kwargs):
+    def set_cancellation_data(self, event, **kwargs):
         """
 
         :param args:
@@ -230,30 +219,72 @@ class Transfer(AbstractBaseModel, TaskQueueMixin, MachineMixin):
         if reason is None:
             raise ReasonNotAvailable
 
-        self.cancel_reason = reason
+        user = event.kwargs.get('user')
+        if user is not None:
+            self.cancellation_data = Cancellation(reason=reason, user=CancellationByUser(id=user.id))
+            return
 
-    def has_cancel_fields(self, event, **kwargs):
+        queue_name = event.kwargs.get('queue_name')
+        task_name = event.kwargs.get('task_name')
+        if queue_name is not None and task_name is not None:
+            task = CancellationByTask(name=task_name, queue_name=queue_name)
+            cancellation = Cancellation(reason=reason, task=task)
+            self.cancellation_data = cancellation
+
+    def has_cancellation_data(self, event, **kwargs):
         """
 
         :param args:
         :param kwargs:
         :return:
         """
-        return self.cancel_reason is not None and self.cancel_user_id is not None
+        return self.cancellation_data.type is not None
+
+    def execute_cancel(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        if self.has_cancellation_data(event):
+            persist = event.kwargs.get('persist', False)
+            #
+            act_txn = self._get_act_txn(event)
+            act_txn = self._cancel_txn(act_txn, persist)
+            event.kwargs.update({'act_txn': act_txn})
+            #
+            dst_txn = self._get_dst_txn(event)
+            dst_txn = self._cancel_txn(dst_txn, persist)
+            event.kwargs.update({'dst_txn': dst_txn})
+
+    def remove_expired_task(self, event, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        task_name = self.tasks.get('cancel')
+        if task_name:
+            queue_name = self.__table_name__
+            self.remove_task(queue_name=queue_name, name=task_name)
+            del self.tasks['cancel']
 
     # ---------------
     # Task Methods
     # ---------------
-    def create_task_to_cancel_transfer(self):
+    def create_expired_task(self):
         kwargs = dict()
         action = 'cancel'
         url_params = {'id': self.id, 'action': action}
         url = url_for('tasks.transfer_actions', **url_params)
         kwargs['queue_name'] = self.__table_name__
-        kwargs['method'] = 'POST'
+        kwargs['method'] = 'PUT'
         kwargs['url'] = url
         kwargs['eta'] = datetime.utcnow() + timedelta(hours=24)
-        kwargs['payload'] = urllib.urlencode({'action': action})
+        kwargs['payload'] = urllib.urlencode({'action': action,
+                                              'metadata': json.dumps({'reason': 'expired'})})
         # context['target'] = modules.get_current_module_name()
         task = self.add_task(**kwargs)
         if isinstance(task, taskqueue.Task):
@@ -306,19 +337,3 @@ class P2pTransfer(Transfer):
             dst_txn = self._execute_txn(dst_txn, persist)
             event.kwargs.update({'dst_txn': dst_txn})
 
-    def execute_cancel(self, event, **kwargs):
-        """
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        persist = event.kwargs.get('persist', False)
-        #
-        act_txn = self._get_act_txn(event)
-        act_txn = self._cancel_txn(act_txn, persist)
-        event.kwargs.update({'act_txn': act_txn})
-        #
-        dst_txn = self._get_dst_txn(event)
-        dst_txn = self._cancel_txn(dst_txn, persist)
-        event.kwargs.update({'dst_txn': dst_txn})

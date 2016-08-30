@@ -23,7 +23,7 @@ class TransferActions(MethodView):
     schema = ActionSchema()
 
     @get_object(model=Transfer)
-    def post(self, *args, **kwargs):
+    def put(self, id, action, *args, **kwargs):
         """
         Process task
         curl -u token:empty -i -X POST -H "Content-Type: application/json" -d
@@ -33,14 +33,27 @@ class TransferActions(MethodView):
         or 'application/octet-stream' which flask does not recognize
         :return:
         """
+        data = {}
         if self.object and request.content_type == 'application/x-www-form-urlencoded':
             self.schema.context['instance'] = self.object
             data, errors = self.schema.load(request.form)
-            print data, errors
+            if errors:
+                return jsonify({'errors': errors}), 400
 
-        return jsonify({'data': data}), 200
+            kwargs['queue_name'] = request.headers.get('X-AppEngine-QueueName')
+            kwargs['task_name'] = request.headers.get('X-AppEngine-TaskName')
+            kwargs['persist'] = True
+            metadata = data.get('metadata')
+            if metadata:
+                kwargs['reason'] = metadata.get('reason')
+
+            if self.object.run_action(action, **kwargs):
+                result = self.schema.dump(self.object)
+                return jsonify({'data': result.data}), 200
+
+        return jsonify({'data': data}), 400
 
 blueprint_tasks.add_url_rule('/transfers/<string:id>/actions/<string:action>',
                              view_func=TransferActions.as_view('transfer_actions'),
-                             methods=['POST'],
+                             methods=['PUT'],
                              endpoint='transfer_actions')

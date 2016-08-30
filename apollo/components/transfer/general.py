@@ -47,7 +47,7 @@ TT_EXECUTE_SUCCEED = {
     'prepare': ['execute_operation'],
     'conditions': ['has_transaction_account_succeed', 'has_transaction_destination_succeed'],
     'unless': [],
-    'before': [],
+    'before': ['remove_expired_task'],
     'after': []
 }
 
@@ -74,10 +74,10 @@ TT_CANCEL = {
     'trigger': 'go_cancel',
     'source': [TRANSFER_CREATED[1]],
     'dest': TRANSFER_CANCELLED[1],
-    'prepare': ['set_user', 'set_reason', 'execute_cancel'],
-    'conditions': ['has_cancel_fields'],
+    'prepare': ['set_cancellation_data', 'execute_cancel'],
+    'conditions': ['has_cancellation_data'],
     'unless': [],
-    'before': [],
+    'before': ['remove_expired_task'],
     'after': []
 }
 

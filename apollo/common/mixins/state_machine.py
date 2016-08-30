@@ -9,7 +9,8 @@ class MachineMixin(object):
     """
     MachineMixin
     """
-    def _trigger(self, action):
+    @staticmethod
+    def _trigger(action):
         return 'go_{}'.format(action)
 
     def is_action_valid(self, action):
