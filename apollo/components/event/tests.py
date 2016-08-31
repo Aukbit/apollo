@@ -4,29 +4,25 @@ import base64
 
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
-from cassandra.cqlengine.management import drop_table
-from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
 from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
 from apollo.components.event.general import ACTIONS_MAP, CREATED, UPDATED
-from apollo.components.account.models import CurrentAccount
+from apollo.components.account.subscribers import UserSubscriber as AUS
+from apollo.components.payment.subscribers import UserSubscriber as PUS
 
 
 class EventTestCase(TestAppEngineMixin):
 
     def setUp(self):
         super(EventTestCase, self).setUp()
-        init_db(models=[CurrentAccount, EventApi, EventBot, User])
-        self.db = get_db()
 
     def tearDown(self):
         super(EventTestCase, self).tearDown()
-        drop_table(EventApi)
-        drop_table(EventBot)
-        drop_table(User)
 
+    @patch.object(AUS, 'on_event')
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     def test_create_event(self, *args):
         # get events
@@ -38,6 +34,8 @@ class EventTestCase(TestAppEngineMixin):
         self.assertEqual(events[0].action, CREATED[0])
         self.assertEqual(events[0].data, self.luke.to_json())
 
+    @patch.object(AUS, 'on_event')
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     def test_update_event(self, *args):
         # assert events

@@ -5,14 +5,10 @@ import base64
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
 from transitions import MachineError
-from cassandra.cqlengine.management import drop_table
-from apollo.common.database import init_db, get_db
+
 from apollo.tests.mixins import TestAppEngineMixin
-from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
-from apollo.components.event.general import ACTIONS_MAP, CREATED, UPDATED
-from apollo.components.log.models import LogHttpRequest
 from apollo.components.account.models import (CurrentAccount,
                                               AccountTransaction,
                                               DebitAccountTransaction,
@@ -34,33 +30,18 @@ from apollo.components.transfer.general import (TRANSFER_CREATED,
 from apollo.common.currencies import DEFAULT_CURRENCY
 from apollo.common.failure_codes import (FAILURE_INSUFFICIENT_FUNDS,
                                          FAILURE_TRANSACTION_OPERATION_ERROR)
+from apollo.components.payment.subscribers import UserSubscriber as PUS
 
 
-class EventTestCase(TestAppEngineMixin):
+class TransferTestCase(TestAppEngineMixin):
 
-    def setUp(self):
-        super(EventTestCase, self).setUp()
-        init_db(models=[Transfer,
-                        DebitAccountTransaction,
-                        CreditAccountTransaction,
-                        CurrentAccount,
-                        EventApi,
-                        EventBot,
-                        User,
-                        LogHttpRequest])
-        self.db = get_db()
+    def setUp(self, *args):
+        super(TransferTestCase, self).setUp()
 
     def tearDown(self):
-        super(EventTestCase, self).tearDown()
-        drop_table(LogHttpRequest)
-        drop_table(EventApi)
-        drop_table(EventBot)
-        drop_table(User)
-        drop_table(CurrentAccount)
-        drop_table(DebitAccountTransaction)
-        drop_table(CreditAccountTransaction)
-        drop_table(Transfer)
+        super(TransferTestCase, self).tearDown()
 
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer(self, *args):
@@ -165,6 +146,7 @@ class EventTestCase(TestAppEngineMixin):
         with self.assertRaises(MachineError):
             t.go_cancel()
 
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer_failure_account_with_insufficient_funds(self, *args):
@@ -215,6 +197,7 @@ class EventTestCase(TestAppEngineMixin):
         with self.assertRaises(MachineError):
             t.go_cancel()
 
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer_failure_destination_reject_funds(self, *args):
@@ -278,6 +261,7 @@ class EventTestCase(TestAppEngineMixin):
         with self.assertRaises(MachineError):
             t.go_cancel()
 
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
     @deco_auth_user(username="leia", email="test.leia.skywalker@aukbit.com", password="123456")
     def test_create_transfer_failure_sealed_timeout(self, *args):

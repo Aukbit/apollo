@@ -4,16 +4,12 @@ import base64
 
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
-from cassandra.cqlengine.management import drop_table
-from cassandra.cqlengine import columns
-from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
 from apollo.components.account.models import CurrentAccount
-from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.event.models import Event, EventApi, EventBot
-from apollo.components.payment.models import StripePaymentProcessor
 from apollo.common.currencies import DEFAULT_CURRENCY
+from apollo.components.payment.subscribers import UserSubscriber as PUS
 
 
 class AccountTestCase(TestAppEngineMixin):
@@ -24,8 +20,9 @@ class AccountTestCase(TestAppEngineMixin):
     def tearDown(self):
         super(AccountTestCase, self).tearDown()
 
+    @patch.object(PUS, 'on_event')
     @deco_auth_user(username="luke", email="test.luke.skywalker@aukbit.com", password="123456")
-    def test_create_account(self):
+    def test_create_account(self, *args):
         # get accounts
         accounts = CurrentAccount.objects.all()
         self.assertEqual(len(accounts), 1)

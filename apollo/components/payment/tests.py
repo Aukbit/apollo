@@ -12,11 +12,8 @@ import stripe
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
 from transitions import MachineError
-from cassandra.cqlengine.management import drop_table
 
-from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
-from apollo.components.user.models import User, Profile
 from apollo.components.user.decorators import deco_auth_user
 from apollo.components.payment.models import (PaymentProcessor,
                                               StripePaymentProcessor)

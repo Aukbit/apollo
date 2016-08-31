@@ -97,26 +97,32 @@ class TestAppEngineMixin(unittest.TestCase):
         # using ndb.get_context().set_cache_policy(False)
         ndb.get_context().clear_cache()
         #
-        init_db(models=[Transfer,
-                DebitAccountTransaction,
-                CreditAccountTransaction,
-                CurrentAccount,
-                EventApi,
-                EventBot,
-                User,
-                LogHttpRequest,
-                StripePaymentProcessor])
+        init_db(models=[User,
+                        LogHttpRequest,
+                        Event,
+                        EventApi,
+                        EventBot,
+                        CurrentAccount,
+                        DebitAccountTransaction,
+                        CreditAccountTransaction,
+                        Transfer,
+                        P2pTransfer,
+                        PaymentProcessor,
+                        StripePaymentProcessor])
         self.db = get_db()
 
     def tearDown(self):
+        drop_table(User)
         drop_table(LogHttpRequest)
+        drop_table(Event)
         drop_table(EventApi)
         drop_table(EventBot)
-        drop_table(User)
         drop_table(CurrentAccount)
         drop_table(DebitAccountTransaction)
         drop_table(CreditAccountTransaction)
         drop_table(Transfer)
+        drop_table(P2pTransfer)
+        drop_table(PaymentProcessor)
         drop_table(StripePaymentProcessor)
         self.testbed.deactivate()
 

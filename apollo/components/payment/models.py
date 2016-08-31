@@ -19,7 +19,7 @@ class PaymentProcessor(AbstractBaseModel):
     """PaymentProcessor
 
     """
-    __table_name__ = 'processor_gateway'
+    __table_name__ = 'payment_processor'
     owner_id = columns.UUID(primary_key=True)
     id = columns.UUID(primary_key=True, default=uuid.uuid1)
     type = columns.Text(primary_key=True, discriminator_column=True)

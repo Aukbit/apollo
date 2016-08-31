@@ -4,8 +4,6 @@ import base64
 
 from mock import MagicMock, Mock, patch
 from flask import request, g, url_for
-from cassandra.cqlengine.management import drop_table
-from apollo.common.database import init_db, get_db
 from apollo.tests.mixins import TestAppEngineMixin
 from apollo.components.log.models import LogHttpRequest, Request, Response
 from apollo.components.log.general import HTTP_METHODS_MAP, GET
@@ -15,12 +13,9 @@ class LogHttpRequestTestCase(TestAppEngineMixin):
 
     def setUp(self):
         super(LogHttpRequestTestCase, self).setUp()
-        init_db(models=[LogHttpRequest], types=[Request, Response])
-        self.db = get_db()
 
     def tearDown(self):
         super(LogHttpRequestTestCase, self).tearDown()
-        drop_table(LogHttpRequest)
 
     def test_index_endpoint(self):
         url = url_for('index')
