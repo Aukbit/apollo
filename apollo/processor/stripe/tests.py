@@ -1,5 +1,5 @@
 import os
-import datetime
+from datetime import datetime, timedelta
 import base64
 import time
 import simplejson as json
@@ -79,12 +79,20 @@ class StripeMixinTestCase(TestAppEngineMixin):
         mixin = StripeMixin()
         kwargs = {'email': self.email,
                   'country': 'GB',
-                  'currency': 'GBP'}
+                  'currency': 'GBP',
+                  'first_name': 'first_name',
+                  'last_name': 'last_name',
+                  'dob': datetime.utcnow() - timedelta(days=9000),
+                  'address': {'city': 'London', 'line1': 'line1', 'postal_code': 'W14'},
+                  'tos_acceptance': {'date': datetime.utcnow(), 'ip': '127.0.0.1'}
+                  }
         a = mixin.create_account(**kwargs)
         self.assertEqual(a.get('object'), 'account')
         self.assertIsNotNone(a.get('id'))
         self.assertEqual(a.get('email'), self.email)
-        print a
+        self.assertEqual(a.get('transfers_enabled'), False)
+        self.assertEqual(len(a.get('verification').get('fields_needed')), 2)
+        print 'test_create_account: fields_needed {}'.format(a.get('verification').get('fields_needed'))
         # delete from vault
         act = stripe.Account.retrieve(a.get('id'))
         response = act.delete()

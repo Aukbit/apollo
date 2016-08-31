@@ -48,7 +48,14 @@ class StripeMixin(object):
         except Exception as e:
             # Something else happened, completely unrelated to Stripe
             exception = e
-        error = {'error': exception.json_body.get('error') if exception.json_body is not None else exception}
+        print exception
+        if isinstance(exception, dict):
+            body = exception.get('json_body')
+            if body:
+                error = {'error': body.get('error')}
+        else:
+            error = {'error': exception}
+
         logger.error('error: %s data: %s' % (error, kwargs))
         return error
 
@@ -140,12 +147,20 @@ class StripeMixin(object):
             legal_entity['first_name'] = kwargs.get('first_name')
             legal_entity['last_name'] = kwargs.get('last_name')
             legal_entity['type'] = 'individual'
-            dob_date = kwargs.get('dob_date')
-            if isinstance(dob_date, datetime):
-                legal_entity['dob']['day'] = dob_date.day
-                legal_entity['dob']['month'] = dob_date.month
-                legal_entity['dob']['year'] = dob_date.year
+            # legal_entity.dob
+            dob = kwargs.get('dob')
+            if isinstance(dob, datetime):
+                legal_entity['dob'] = {'day': dob.day, 'month': dob.month, 'year': dob.year}
 
+            # legal_entity.address
+            legal_entity['address'] = kwargs.get('address')
+
+            # TODO: upload files to stripe
+            # legal_entity.verification.document
+
+            # tos
+            tos_acceptance = kwargs.get('tos_acceptance')
+            # create
             account = stripe.Account.create(
                 email=email,
                 country=country,
@@ -157,6 +172,7 @@ class StripeMixin(object):
                 default_currency=currency,
                 managed=True,
                 legal_entity=legal_entity,
+                tos_acceptance=tos_acceptance,
                 transfer_schedule={'interval': 'manual'}
             )
             return account
