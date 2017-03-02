@@ -1,0 +1,7 @@
+# requirements/tests.txt
+-r requirements.txt
+#
+webtest
+unittest2
+coverage
+mock

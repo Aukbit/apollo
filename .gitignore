@@ -1,0 +1,15 @@
+.idea
+lib
+dev_env_variables.yaml
+
+# api service
+apollo-api/lib
+
+# ignore .pyc extensions anywhere in the tree
+*.pyc
+*.log
+*.pem
+*.babelrc
+*.map
+*.cfg
+

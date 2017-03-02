@@ -1,0 +1,4 @@
+
+
+class TransferNotAvailable(Exception):
+    pass

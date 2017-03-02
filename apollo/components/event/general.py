@@ -1,0 +1,14 @@
+
+CREATED = 1, 'created'
+UPDATED = 2, 'updated'
+DELETED = 3, 'deleted'
+
+ACTIONS_STRING_MAP = {
+    CREATED[1]: CREATED[0],
+    UPDATED[1]: UPDATED[0],
+    DELETED[1]: DELETED[0]
+}
+
+ACTIONS_CHOICES = frozenset(ACTIONS_STRING_MAP.values())
+ACTIONS_STRING_CHOICES = frozenset(ACTIONS_STRING_MAP.keys())
+ACTIONS_MAP = dict(zip(ACTIONS_STRING_MAP.values(), ACTIONS_STRING_MAP.keys()))
